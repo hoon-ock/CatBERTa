@@ -5,11 +5,13 @@ import ase.io
 # import openai
 # from openai.error import RateLimitError
 from tqdm import tqdm
-# import time
+import time
+
 
 from mp_api.client import MPRester
 import mp_api.client.core.client as mp_client
 from site_analysis import SiteAnalyzer
+
 
 class Coord2Language:
     def __init__(self, code_list, tag_path, meta_path, ref_path, ads_path, traj_path, save_path):
@@ -24,19 +26,23 @@ class Coord2Language:
 
     def get_descriptions(self):
         # self.access_openai()
-        
-
         for code in tqdm(self.code_list):
             save_file_path = os.path.join(self.save_path, f"{code}.pkl")
             if os.path.exists(save_file_path):
                 print(f'{code} already exists')
                 continue
+            # time1 = time.time()
             sys_descr = self.get_sys_description(code)
-            conf_descr_i = self.get_config_description(code, frame_no=0)
-            conf_descr_f = self.get_config_description(code, frame_no=-1)
-            ads_descr = self.get_ads_description(code)
-            cat_descr = self.get_cat_description(code)
+            # time2 = time.time()
             relaxed_energy = self.get_relaxed_energy(code)
+            # time3 = time.time()
+            conf_descr_i = self.get_config_description(code, frame_no=0)
+            conf_descr_f = self.get_config_description(code, frame_no=-1, relaxed_energy=relaxed_energy)
+            # time4 = time.time()
+            ads_descr = self.get_ads_description(code)
+            # time5 = time.time()
+            cat_descr = self.get_cat_description(code)            
+            # time6 = time.time()
             results = {'system': sys_descr,
                        'conf_i': conf_descr_i,
                        'conf_f': conf_descr_f,
@@ -46,9 +52,19 @@ class Coord2Language:
                        }
             if not os.path.exists(self.save_path):
                 os.makedirs(self.save_path)
-
+            
             with open(save_file_path, "wb") as f:
                 pickle.dump(results,f)
+            # time7 = time.time()
+            
+            # print('time sys des: ', time2-time1)
+            # print('time conf des: ', time4-time3)
+            # print('time ads des: ', time4-time3)
+            # print('time cat des: ', time5-time4)
+            # print('time E calc: ', time3-time2)
+            # print('time file save: ', time7-time6)
+            # print(conf_descr_i)
+            # print(conf_descr_f)
 
     # def access_openai(self):
     #     os.environ["OPENAI_API_KEY"] = "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"
@@ -86,24 +102,18 @@ class Coord2Language:
         E_ads = E_sys - E_ref
         return E_ads
 
-    def get_config_description(self, code, frame_no):
+    def get_config_description(self, code, frame_no, relaxed_energy=None):
         config_description = ""
-        heavy_atoms = ['C', 'N', 'O']
+        heavy_atoms = {'C', 'N', 'O'}
         counts = {}
         binding_info = self.get_binding_info(code, frame_no)
         
-        if binding_info == []:
-            config_description = "There is no significant chemical interaction \
+        if not binding_info:
+            return "There is no significant chemical interaction \
 between any atoms of the adsorbate and the surface atoms."
-            return config_description
 
-        interacting_atoms = []
-        interacting_heavy_atoms = []
-        for atom in binding_info:
-            ads = atom['adsorbate_element']
-            interacting_atoms.append(atom)
-            if ads in heavy_atoms:
-                interacting_heavy_atoms.append(atom)
+        interacting_atoms = [atom for atom in binding_info]
+        interacting_heavy_atoms = [atom for atom in binding_info if atom['adsorbate_element'] in heavy_atoms]
             
         if len(interacting_heavy_atoms) >=1:
            interacting_atom_list = interacting_heavy_atoms
@@ -112,47 +122,28 @@ between any atoms of the adsorbate and the surface atoms."
             interacting_atom_list = interacting_atoms
             overview = "There is no significant chemical interaction between surface \
 and heavy atoms in adsorbate. "
-        # print(overview)
         for atom in interacting_atom_list:
             ads = atom['adsorbate_element']
-            if ads not in counts:
-                counts[ads] = 1
+            counts.setdefault(ads, 0)
+            counts[ads] += 1
+            if counts[ads] == 1:
                 prefix = ""
+            elif counts[ads] ==2:
+                prefix = "2nd"
+            elif counts[ads] ==3:
+                prefix = "3rd"
             else:
-                counts[ads] += 1
-                if counts[ads] == 2:
-                    prefix = "2nd"
-                elif counts[ads] == 3:
-                    prefix = "3rd"
-                else:
-                    prefix = f"{counts[ads]}th"          
+                prefix = f"{counts[ads]}th"        
 
-
-            # if len(binding_info) >= 2:
-            #     if ads in heavy_atoms:
-            #         if ads not in counts:
-            #             counts[ads] = 1
-            #             prefix = ""
-            #         else:
-            #             counts[ads] += 1
-            #             if counts[ads] == 2:
-            #                 prefix = "2nd"
-            #             elif counts[ads] == 3:
-            #                 prefix = "3rd"
-            #             else:
-            #                 prefix = f"{counts[ads]}th"
-            #     else:
-            #         continue
-            # else:
-            #     prefix = ""
             cats = ", ".join(str(x) for x in atom['slab_atom_elements'])
             if len(atom['slab_atom_elements'])==1:
                 site_type = 'atop'
             elif len(atom['slab_atom_elements'])==2:
                 site_type = 'bridge'
-            elif len(atom['slab_atom_elements'])>=3:
+            else:
                 site_type = 'hollow'
-
+#             description = f"The {prefix} {ads} atom of the adsorbate is placed on the {site_type} site \
+# and is binding to the catalytic surface atoms {cats}."
             if prefix:
                 description = f"The {prefix} {ads} atom of the adsorbate is placed on the {site_type} site \
 and is binding to the catalytic surface atoms {cats}."
@@ -162,14 +153,18 @@ and is binding to the catalytic surface atoms {cats}."
             config_description += description
 
         if frame_no == -1:
-            E_ads = np.round(self.get_relaxed_energy(code),3)
+            if relaxed_energy:
+                E_ads = np.round(relaxed_energy ,3)
+            else:
+                E_ads = np.round(self.get_relaxed_energy(code),3)
             E_description = f" The calculated adsorption energy of the relaxed structure is {E_ads} eV."
             config_description += E_description
         config_description = overview + config_description
         return config_description
     
     def get_sys_description(self, code):
-        meta = self.meta 
+        meta = self.meta
+        #import pdb;pdb.set_trace() 
         sys_description = f"Adsorbate {meta[code]['ads_symbols']} is adsorbed on \
 the catalytic surface {meta[code]['bulk_symbols']} ({meta[code]['bulk_mpid']}) \
 with a Miller Index of {meta[code]['miller_index']}."
@@ -226,11 +221,11 @@ if __name__ == "__main__":
     code_list = pickle.load(open('../metadata/split_ids/train/train_ids.pkl','rb'))
     # empty_value_ids = ['random864551', 'random230123', 'random1073229',
     #                    'random1335784', 'random938574', 'random1167515']
-    seed = 2
+    seed = 3
     sample_number = 20000
     random.seed(seed)
     sampled_code = random.sample(code_list,sample_number)
-    
+    #import pdb;pdb.set_trace()
     convert = Coord2Language(sampled_code, tag_path, meta_path, 
                              ref_path, ads_path, traj_path, save_path)
     convert.get_descriptions()
