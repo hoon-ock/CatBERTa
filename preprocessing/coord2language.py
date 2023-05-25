@@ -218,14 +218,16 @@ if __name__ == "__main__":
     traj_path = '/home/jovyan/shared-datasets/OC20/trajs/train_02_01/'
     save_path = '/home/jovyan/shared-scratch/jhoon/CATBERT/train_prompt_dict/'
 
-    code_list = pickle.load(open('../metadata/split_ids/train/train_ids.pkl','rb'))
+    # code_list = pickle.load(open('../metadata/split_ids/train/train_ids.pkl','rb'))
+    code_list = pickle.load(open('../data/train_ids_100k.pkl','rb'))
     # empty_value_ids = ['random864551', 'random230123', 'random1073229',
     #                    'random1335784', 'random938574', 'random1167515']
-    seed = 3
-    sample_number = 20000
-    random.seed(seed)
-    sampled_code = random.sample(code_list,sample_number)
-    #import pdb;pdb.set_trace()
-    convert = Coord2Language(sampled_code, tag_path, meta_path, 
+    # id random sampling
+    # seed = 4
+    # sample_number = 20000
+    # random.seed(seed)
+    # code_list = random.sample(code_list,sample_number)
+    
+    convert = Coord2Language(code_list, tag_path, meta_path, 
                              ref_path, ads_path, traj_path, save_path)
     convert.get_descriptions()

@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # load pre-trained tokenizer
     tokenizer = RobertaTokenizerFast.from_pretrained('./tokenizer', max_len=514)
 
-    # load training files
+    # load training files <-- this can be obtained with dataframe
     paths = [str(x) for x in Path('./data/train').glob('random*.txt')]
     encodings = get_encodings(paths)
     dataset = RobertaDataset(encodings)
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     )
     model = RobertaForMaskedLM(config)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print('device:', device)
+    print('Device:', device)
     model.to(device)
     optim = AdamW(model.parameters(), lr=lr)
     

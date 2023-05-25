@@ -1,13 +1,24 @@
 from pathlib import Path 
 from tokenizers import ByteLevelBPETokenizer
+# from tokenizers.trainers import BpeTrainer
+# from tokenizers.pre_tokenizers import Whitespace
 import os
 
 
 # Collect training files for tokenizer
 paths = [str(x) for x in Path('../data/train').glob('random*.txt')]
 
+# Collect training text from dataframe
+# df = pd.read_pickle('../data/df_train.pkl')
+# texts = df['text'].values.tolist()
+# print('Number of training texts: ', len(texts))
+
+
 # Initialize tokenizer
 tokenizer = ByteLevelBPETokenizer()
+# tokenizer.pre_tokenizer = Whitespace()
+# tokenizer.train_from_iterator(texts)
+# tokenizer.add_special_tokens(["<s>", "<pad>", "</s>", "<unk>", "<mask>"])
 tokenizer.train(files=paths, min_frequency=2, 
                 special_tokens=['<s>', '<pad>', '</s>', '<unk>', '<mask>'])
 

@@ -1,4 +1,4 @@
-from model.transformer_encoder import Transformer, PositionalEncoding
+from _playground.transformer_encoder import Transformer, PositionalEncoding
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -95,9 +95,9 @@ if __name__ == "__main__":
     num_heads = 8
     dropout = 0.1
     batch_size = 32
-    num_epochs = 10
+    num_epochs = 100
     lr = 5e-4
-    max_length = 512
+    max_length = 20
 
     dataset = MaterialDataset(texts, tokenizer, max_length)  # Dummy dataset
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         loss = train(model, optimizer, train_loader, criterion, device)
         print(f"Epoch {epoch} loss: {loss:.4f}")
         #writer.add_scalar("Train/Loss", loss, epoch)
-        if epoch%10 == 0:
+        if epoch%5 == 0:
             wandb.log({"loss": loss})
         
             
