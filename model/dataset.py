@@ -5,11 +5,11 @@ from sklearn.model_selection import StratifiedKFold
 
 class MyDataset(torch.utils.data.Dataset):
    
-    def __init__(self, texts, targets, tokenizer, seq_len=400):        
+    def __init__(self, texts, targets, tokenizer, seq_len=500): 
         self.texts = texts
         self.targets = targets
         self.tokenizer = tokenizer
-        self.seq_len = seq_len
+        self.seq_len = seq_len # 400 was set as the default originally  
     
     def __len__(self):
         """Returns the length of dataset."""

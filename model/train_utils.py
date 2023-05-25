@@ -3,7 +3,7 @@ import torch, transformers, os
 import torch.nn as nn
 import matplotlib.pyplot as plt 
 from torch.utils.data import DataLoader
-from model.regressors import MyModel, MyModel_AttnHead, MyModel_ConcatLast4Layers
+from model.regressors import MyModel, MyModel_MLP, MyModel_AttnHead, MyModel_ConcatLast4Layers
 from model.dataset import MyDataset
 
 def mae_loss_fn(prediction, target):
@@ -32,7 +32,7 @@ def plot_train_val_losses(train_losses, val_losses, fold, save_file_path):
     #plt.show()
     plt.savefig(os.path.join(save_file_path, f"fold_{fold}_loss.png"))
 
-def train_fn(data_loader, model, optimizer, device, scheduler, loss='mae'):
+def train_fn(data_loader, model, optimizer, device, scheduler, loss_mode='mae'):
     model.train()                               # Put the model in training mode.                   
     lr_list = []
     train_losses = []
@@ -45,9 +45,9 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss='mae'):
         optimizer.zero_grad()                   # To zero out the gradients.
         outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
         # Get the training loss.
-        if loss == 'mae':
+        if loss_mode == 'mae':
             loss = mae_loss_fn(outputs, targets)        
-        elif loss =='rmse':
+        elif loss_mode =='rmse':
             loss  = rmse_loss_fn(outputs, targets)    
         train_losses.append(loss.item())
         loss.backward(retain_graph=True)        
@@ -57,7 +57,7 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss='mae'):
         scheduler.step()                        # To update learning rate.    
     return train_losses, lr_list
 
-def validate_fn(data_loader, model, device, loss='mae'):  
+def validate_fn(data_loader, model, device, loss_mode='mae'):  
     model.eval()                                    # Put model in evaluation mode.
     val_losses = []
    
@@ -69,15 +69,15 @@ def validate_fn(data_loader, model, device, loss='mae'):
             targets = batch["target"].to(device, dtype=torch.float)
             outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
              # Get the validation loss.
-            if loss == 'mae':
+            if loss_mode == 'mae':
                 loss = mae_loss_fn(outputs, targets)        
-            elif loss =='rmse':
+            elif loss_mode =='rmse':
                 loss  = rmse_loss_fn(outputs, targets)            
             val_losses.append(loss.item())           
     return val_losses 
 
 
-def run_training(df, tokenizer, model_head="pooler"):  
+def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae', custom_path=None):  
     
     """
     model_head: Accepted option is "pooler", "attnhead", or "concatlayer"
@@ -88,13 +88,18 @@ def run_training(df, tokenizer, model_head="pooler"):
     TRAIN_BS = 16             # Training batch size     
     VAL_BS = 64               # Validation batch size  
     cv = []                   # A list to hold the cross validation scores
-    save_file_path = os.path.join("./results/", f"roberta_base_{model_head}")
+    if custom_path is not None:
+        save_file_path = custom_path
+    else:
+        save_file_path = os.path.join("./results/", f"roberta_base_{model_head}")
     if not os.path.exists(save_file_path):
         os.makedirs(save_file_path)
     #=========================================================================
     # Prepare data and model for training
     #=========================================================================
-    
+    if kfold == False:
+        FOLDS = [0]
+
     for fold in FOLDS:
         #set_random_seed(3377)
         # Initialize the tokenizer
@@ -108,12 +113,14 @@ def run_training(df, tokenizer, model_head="pooler"):
         # Initialize training dataset
         train_dataset = MyDataset(texts = df_train["text"].values,
                                   targets = df_train["target"].values,
-                                  tokenizer = tokenizer)
+                                  tokenizer = tokenizer,
+                                  seq_len=500)
 
         # Initialize validation dataset
         val_dataset = MyDataset(texts = df_val["text"].values,
                                 targets = df_val["target"].values,
-                                tokenizer = tokenizer)
+                                tokenizer = tokenizer,
+                                seq_len=500)
 
         # Create training dataloader
         train_data_loader = DataLoader(train_dataset, batch_size = TRAIN_BS,
@@ -129,6 +136,8 @@ def run_training(df, tokenizer, model_head="pooler"):
         # Load model and send it to the device.        
         if model_head == "pooler":
             model = MyModel().to(device)
+        elif model_head == "mlp":
+            model = MyModel_MLP().to(device)
         elif model_head == "attnhead":
             model = MyModel_AttnHead().to(device)
         elif model_head == "concatlayer":
@@ -137,7 +146,7 @@ def run_training(df, tokenizer, model_head="pooler"):
             raise ValueError(f"Unknown model_head: {model_head}") 
 
         # Get the AdamW optimizer
-        optimizer = transformers.AdamW(model.parameters(), lr=1e-6)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-6)
 
         # Calculate the number of training steps (this is used by scheduler).
         # training steps = [number of batches] x [number of epochs].
@@ -165,13 +174,13 @@ def run_training(df, tokenizer, model_head="pooler"):
         for epoch in range(EPOCHS):
 
             # Call the train function and get the training loss
-            train_losses, lr_list = train_fn(train_data_loader, model, optimizer, device, scheduler)
+            train_losses, lr_list = train_fn(train_data_loader, model, optimizer, device, scheduler, loss_mode)
             train_loss = np.mean(train_losses)   
             all_train_losses.append(train_loss)
             all_lr.extend(lr_list)
 
             # Perform validation and get the validation loss
-            val_losses = validate_fn(val_data_loader, model, device)
+            val_losses = validate_fn(val_data_loader, model, device, loss_mode)
             val_loss = np.mean(val_losses)
             all_val_losses.append(val_loss)    
 
@@ -180,7 +189,7 @@ def run_training(df, tokenizer, model_head="pooler"):
             # If there's improvement on the validation loss, save the model checkpoint.
             # Else do early stopping if threshold is reached.
             if loss < best_loss:            
-                torch.save(model.state_dict(), os.path.join(save_file_path, f"fold_{fold}_ckpt.pt"))
+                #torch.save(model.state_dict(), os.path.join(save_file_path, f"fold_{fold}_ckpt.pt"))
                 print(f"FOLD: {fold}, Epoch: {epoch}, Loss = {round(loss,4)}, checkpoint saved.")
                 best_loss = loss
                 early_stopping_counter = 0
@@ -191,12 +200,13 @@ def run_training(df, tokenizer, model_head="pooler"):
                 print(f"FOLD: {fold}, Epoch: {epoch}, Loss = {round(loss,4)}")
                 print(f"Early stopping triggered! Best Loss: {round(best_loss,4)}\n")                
                 break
-
+        print(f"===== Training Termination =====")        
         # Plot the losses and learning rate schedule.
-        plt.clf()
+        print(f"===== Plot Generation =====")
         plot_train_val_losses(all_train_losses, all_val_losses, fold, save_file_path)
         plt.clf()
-        plot_lr_schedule(all_lr, save_file_path)   
+        # plot_lr_schedule(all_lr, save_file_path)
+        # plt.clf()   
         
         # Keep the best_loss as cross validation score for the fold.
         cv.append(best_loss)
@@ -205,3 +215,4 @@ def run_training(df, tokenizer, model_head="pooler"):
     cv_rounded = [ round(elem, 4) for elem in cv ] 
     print(f"CV: {cv_rounded}") 
     print(f"Average CV: {round(np.mean(cv), 4)}\n")
+
