@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from model.regressors import MyModel, MyModel_MLP, MyModel_AttnHead, MyModel_ConcatLast4Layers
 from model.dataset import MyDataset
+import wandb
+from tqdm import tqdm
+import datetime
 
 def mae_loss_fn(prediction, target):
     return torch.mean(torch.abs(target - prediction))
@@ -36,8 +39,8 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_mode='mae'):
     model.train()                               # Put the model in training mode.                   
     lr_list = []
     train_losses = []
-
-    for batch in data_loader:                   # Loop over all batches.
+    print('training')
+    for batch in tqdm(data_loader):                   # Loop over all batches.
 
         ids = batch["ids"].to(device, dtype=torch.long)
         masks = batch["masks"].to(device, dtype=torch.long)
@@ -46,8 +49,10 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_mode='mae'):
         outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
         # Get the training loss.
         if loss_mode == 'mae':
-            loss = mae_loss_fn(outputs, targets)        
+            loss = mae_loss_fn(outputs, targets)
+            # loss = mae        
         elif loss_mode =='rmse':
+            # mae = mae_loss_fn(outputs, targets)
             loss  = rmse_loss_fn(outputs, targets)    
         train_losses.append(loss.item())
         loss.backward(retain_graph=True)        
@@ -55,14 +60,14 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_mode='mae'):
         optimizer.step()                        # To update parameters based on current gradients.
         lr_list.append(optimizer.param_groups[0]["lr"])
         scheduler.step()                        # To update learning rate.    
-    return train_losses, lr_list
+    return train_losses, lr_list #, mae.item()
 
 def validate_fn(data_loader, model, device, loss_mode='mae'):  
     model.eval()                                    # Put model in evaluation mode.
     val_losses = []
-   
+    print('validation')
     with torch.no_grad():                           # Disable gradient calculation.
-        for batch in data_loader:                   # Loop over all batches.   
+        for batch in tqdm(data_loader):                   # Loop over all batches.   
             
             ids = batch["ids"].to(device, dtype=torch.long)
             masks = batch["masks"].to(device, dtype=torch.long)
@@ -70,14 +75,16 @@ def validate_fn(data_loader, model, device, loss_mode='mae'):
             outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
              # Get the validation loss.
             if loss_mode == 'mae':
-                loss = mae_loss_fn(outputs, targets)        
+                mae = mae_loss_fn(outputs, targets)
+                loss = mae        
             elif loss_mode =='rmse':
+                mae = mae_loss_fn(outputs, targets)
                 loss  = rmse_loss_fn(outputs, targets)            
             val_losses.append(loss.item())           
-    return val_losses 
+    return val_losses, mae.item() 
 
 
-def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae', custom_path=None):  
+def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae', custom_path=None, **kwargs):  
     
     """
     model_head: Accepted option is "pooler", "attnhead", or "concatlayer"
@@ -88,6 +95,18 @@ def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae'
     TRAIN_BS = 16             # Training batch size     
     VAL_BS = 64               # Validation batch size  
     cv = []                   # A list to hold the cross validation scores
+    
+    # ========================================================================
+    # Prepare logging and saving path
+    # ========================================================================
+    #now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    
+    run_name = f"{model_head}_{loss_mode}_{np.round(len(df)/1000)}k"
+    if 'args' in kwargs.keys():
+        run_name += '_'+kwargs['args']
+    
+    wandb.init(project="catformer-ft", name=run_name, dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
+    
     if custom_path is not None:
         save_file_path = custom_path
     else:
@@ -144,7 +163,7 @@ def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae'
             model = MyModel_ConcatLast4Layers().to(device)
         else:
             raise ValueError(f"Unknown model_head: {model_head}") 
-
+        wandb.watch(model, log="all")
         # Get the AdamW optimizer
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-6)
 
@@ -171,48 +190,50 @@ def run_training(df, tokenizer, model_head="pooler", kfold=True, loss_mode='mae'
         all_val_losses = []
         all_lr = []
 
-        for epoch in range(EPOCHS):
+        for epoch in range(1, EPOCHS+1):
 
             # Call the train function and get the training loss
             train_losses, lr_list = train_fn(train_data_loader, model, optimizer, device, scheduler, loss_mode)
             train_loss = np.mean(train_losses)   
-            all_train_losses.append(train_loss)
-            all_lr.extend(lr_list)
+            # all_train_losses.append(train_loss)
+            # all_lr.extend(lr_list)
 
             # Perform validation and get the validation loss
-            val_losses = validate_fn(val_data_loader, model, device, loss_mode)
+            val_losses, val_mae = validate_fn(val_data_loader, model, device, loss_mode)
             val_loss = np.mean(val_losses)
-            all_val_losses.append(val_loss)    
+            # all_val_losses.append(val_loss)    
 
             loss = val_loss
+            wandb.log({"train_loss": train_loss, "val_loss": val_loss, "val_mae": val_mae,'lr': lr_list[-1]})
 
             # If there's improvement on the validation loss, save the model checkpoint.
             # Else do early stopping if threshold is reached.
             if loss < best_loss:            
                 #torch.save(model.state_dict(), os.path.join(save_file_path, f"fold_{fold}_ckpt.pt"))
-                print(f"FOLD: {fold}, Epoch: {epoch}, Loss = {round(loss,4)}, checkpoint saved.")
+                print(f"FOLD: {fold}, Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}, checkpoint saved.")
                 best_loss = loss
                 early_stopping_counter = 0
             else:
-                print(f"FOLD: {fold}, Epoch: {epoch}, Loss = {round(loss,4)}")
+                print(f"FOLD: {fold}, Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}")
                 early_stopping_counter += 1
             if early_stopping_counter > EARLY_STOP_THRESHOLD:
-                print(f"FOLD: {fold}, Epoch: {epoch}, Loss = {round(loss,4)}")
-                print(f"Early stopping triggered! Best Loss: {round(best_loss,4)}\n")                
+                #print(f"FOLD: {fold}, Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}")
+                print(f"Early stopping triggered at epoch {epoch}! Best Loss: {round(best_loss,3)}\n")                
                 break
         print(f"===== Training Termination =====")        
         # Plot the losses and learning rate schedule.
-        print(f"===== Plot Generation =====")
-        plot_train_val_losses(all_train_losses, all_val_losses, fold, save_file_path)
-        plt.clf()
+        # print(f"===== Plot Generation =====")
+        # plot_train_val_losses(all_train_losses, all_val_losses, fold, save_file_path)
+        # plt.clf()
         # plot_lr_schedule(all_lr, save_file_path)
         # plt.clf()   
         
         # Keep the best_loss as cross validation score for the fold.
         cv.append(best_loss)
-        
+    
     # Print the cross validation scores and their average.
     cv_rounded = [ round(elem, 4) for elem in cv ] 
     print(f"CV: {cv_rounded}") 
     print(f"Average CV: {round(np.mean(cv), 4)}\n")
+    wandb.finish()
 

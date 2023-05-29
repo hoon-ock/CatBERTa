@@ -1,13 +1,21 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from transformers import RobertaModel
+from transformers import RobertaModel, RobertaConfig
 
 class MyModel(nn.Module):
             
     def __init__(self):        
         super().__init__() 
-        self.roberta_model = RobertaModel.from_pretrained('roberta-base')       
+        self.roberta_config = RobertaConfig(vocab_size=30_522,
+                                            max_position_embeddings=514,
+                                            hidden_size=768,
+                                            num_attention_heads=12,
+                                            num_hidden_layers=6,
+                                            type_vocab_size=1,)
+        self.pretrained_path = '/home/jovyan/CATBERT/checkpoint/pretrain/data55092_ep10_bs32_20230527_001513.pt'
+        self.roberta_model = RobertaModel.from_pretrained(self.pretrained_path, config=self.roberta_config)                                    
+        #self.roberta_model = RobertaModel.from_pretrained('roberta-base', config=self.roberta_config) #, ignore_mismatched_sizes=True)      
         self.regressor = nn.Linear(768, 1)     
 
     def forward(self, input_ids, attention_mask):        
