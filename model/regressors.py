@@ -5,18 +5,55 @@ from transformers import RobertaModel, RobertaConfig
 
 class MyModel(nn.Module):
             
-    def __init__(self):        
+    def __init__(self, model):        
         super().__init__() 
-        self.roberta_config = RobertaConfig(vocab_size=30_522,
-                                            max_position_embeddings=514,
-                                            hidden_size=768,
-                                            num_attention_heads=12,
-                                            num_hidden_layers=6,
-                                            type_vocab_size=1,)
-        self.pretrained_path = '/home/jovyan/CATBERT/checkpoint/pretrain/data55092_ep10_bs32_20230527_001513.pt'
-        self.roberta_model = RobertaModel.from_pretrained(self.pretrained_path, config=self.roberta_config)                                    
-        #self.roberta_model = RobertaModel.from_pretrained('roberta-base', config=self.roberta_config) #, ignore_mismatched_sizes=True)      
+        self.roberta_model = model 
         self.regressor = nn.Linear(768, 1)     
+
+    def forward(self, input_ids, attention_mask):        
+        raw_output = self.roberta_model(input_ids, attention_mask, return_dict=True)        
+        pooler = raw_output["pooler_output"]    # Shape is [batch_size, 768]
+        output = self.regressor(pooler)         # Shape is [batch_size, 1]
+        return output 
+
+
+class MyModel2(nn.Module):
+            
+    def __init__(self, model, reinit_n_layers=5):        
+        super().__init__() 
+        self.roberta_model = model 
+        self.regressor = nn.Linear(768, 1)
+        self.reinit_n_layers = reinit_n_layers
+        if reinit_n_layers > 0: self._do_reinit()  
+
+    def _debug_reinit(self, text):
+        print(f"\n{text}\nPooler:\n", self.roberta_model.pooler.dense.weight.data)        
+        for i, layer in enumerate(self.roberta_model.encoder.layer[-self.reinit_n_layers:]):
+            for module in layer.modules():
+                if isinstance(module, nn.Linear):
+                    print(f"\n{i} nn.Linear:\n", module.weight.data) 
+                elif isinstance(module, nn.LayerNorm):
+                    print(f"\n{i} nn.LayerNorm:\n", module.weight.data)   
+
+    def _do_reinit(self):
+        # Re-init pooler.
+        self.roberta_model.pooler.dense.weight.data.normal_(mean=0.0, std=self.roberta_model.config.initializer_range)
+        self.roberta_model.pooler.dense.bias.data.zero_()
+        for param in self.roberta_model.pooler.parameters():
+            param.requires_grad = True
+        
+        # Re-init last n layers.
+        for n in range(self.reinit_n_layers):
+            self.roberta_model.encoder.layer[-(n+1)].apply(self._init_weight_and_bias) 
+
+    def _init_weight_and_bias(self, module):                        
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=self.roberta_model.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0) 
 
     def forward(self, input_ids, attention_mask):        
         raw_output = self.roberta_model(input_ids, attention_mask, return_dict=True)        
@@ -45,9 +82,9 @@ class regressionHead(nn.Module):
 
 class MyModel_MLP(nn.Module):
             
-    def __init__(self):        
+    def __init__(self, model):        
         super().__init__() 
-        self.roberta_model = RobertaModel.from_pretrained('roberta-base')       
+        self.roberta_model = model #RobertaModel.from_pretrained('roberta-base')       
         self.regressor = regressionHead() #nn.Linear(768, 1)     
 
     def forward(self, input_ids, attention_mask):        
@@ -80,9 +117,9 @@ class AttentionHead(nn.Module):
 
 class MyModel_AttnHead(nn.Module):
             
-    def __init__(self):        
+    def __init__(self, model):        
         super().__init__() 
-        self.roberta_model = RobertaModel.from_pretrained('roberta-base')
+        self.roberta_model = model #RobertaModel.from_pretrained('roberta-base')
         self.attn_head = AttentionHead(768, 512)       
         self.regressor = nn.Linear(768, 1)     
     
@@ -96,9 +133,9 @@ class MyModel_AttnHead(nn.Module):
 
 class MyModel_ConcatLast4Layers(nn.Module):
             
-    def __init__(self):        
+    def __init__(self, model):        
         super().__init__() 
-        self.roberta_model = RobertaModel.from_pretrained('roberta-base')
+        self.roberta_model = model #RobertaModel.from_pretrained('roberta-base')
         self.regressor = nn.Linear(768*4, 1)     
     
     def forward(self, input_ids, attention_mask):       

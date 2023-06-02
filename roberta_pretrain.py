@@ -9,6 +9,7 @@ import wandb
 import datetime
 import pandas as pd
 import os
+import json
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -82,8 +83,6 @@ def train(model, dataloader, optim, device, mode):
         optim.step()
 
         total_loss += loss.item()
-        # loop.set_description('Epoch: {}'.format(epoch + 1))
-        # loop.set_postfix(loss=loss.item())
     return total_loss / len(dataloader)
 
 # roberta dataset class
@@ -96,8 +95,11 @@ class RobertaDataset(Dataset):
         return len(self.encodings['input_ids'])
 
 
-def run_pretraining(df_train, df_val, tokenizer, model, device, lr, batch_size=32, num_epochs=5):
-    early_stop_threshold = 3
+def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_path):
+    num_epochs = params["num_epochs"]
+    batch_size = params["batch_size"]
+    lr = params["lr"]
+    early_stop_threshold = params["early_stop_threshold"]
     # ===============================================
     # Set run name and initialize wandb
     # ===============================================
@@ -119,7 +121,7 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, lr, batch_size=3
     val_dataset = RobertaDataset(val_encodings)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size*2, shuffle=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
   
     # ===============================================
     # Training loop
@@ -136,7 +138,11 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, lr, batch_size=3
         if loss < best_loss:
             best_loss = loss
             early_stopping_counter = 0
-            torch.save(model.state_dict(), f'./checkpoint/pretrain/{run_name}.pt')
+            #torch.save(model.state_dict(), f'./checkpoint/pretrain/{run_name}.pt')
+            full_save_path = os.path.join(save_path, run_name)
+            if not os.path.exists(full_save_path):
+                os.makedirs(full_save_path)
+            model.save_pretrained(full_save_path)
             print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, checkpoint saved.")
         else:
             early_stopping_counter += 1
@@ -152,43 +158,38 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, lr, batch_size=3
 
 
 if __name__ == '__main__':
+    # ==========================================================
+    # Set up paths for data, model, tokenizer, and results
+    # ==========================================================
+    train_data_path = "./data/df_train.pkl"
+    config_path = "./config/roberta_config.json"
+    tknz_path = "./tokenizer"
+    # ==========================================================
+    # Load config and hyperparameters
+    with open(config_path, "r") as f:
+        loaded_dict = json.load(f)
     
-    # hyperparameters for training
-    num_epochs = 5
-    lr = 1e-4
-    batch_size = 16
-    max_seq_len = 768
-
-    # roberta config
-    config = RobertaConfig(
-        vocab_size=30_522, #tokenizer.vocab_size,
-        max_position_embeddings=max_seq_len, #originally set as 514
-        hidden_size=768,
-        num_attention_heads=12,
-        num_hidden_layers=6,
-        type_vocab_size=1,
-    )
-
-
-    # load pre-trained tokenizer
-    tokenizer = RobertaTokenizerFast.from_pretrained('./tokenizer', max_len=max_seq_len) #orginally set as 514
-
-    # load training files <-- this can be obtained with dataframe
-    # paths = [str(x) for x in Path('./data/pre-train').glob('random*.txt')]
-    # encodings = get_encodings(paths[:100])
-    df = pd.read_pickle('./data/df_train.pkl')
-    #df = df.iloc[:10000] # for code testing
+    
+    # Hyperparameters for training
+    params = loaded_dict['pretrain_params']
+   
+    # Load training files 
+    df = pd.read_pickle(train_data_path)
+    # df = df.iloc[:10000] # for code testing
     df = stratified_kfold(df, n_splits=5)
     df_train = df[df['skfold']!=0]
     df_val = df[df['skfold']==0]
 
-    # texts = df['text'].values.tolist()
-    # encodings = get_encodings_from_texts(texts, tokenizer)
-    # dataset = RobertaDataset(encodings)
-    # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    # load model
+    # Load model
+    config = RobertaConfig.from_dict(loaded_dict["roberta_config"])
     model = RobertaForMaskedLM(config)
+        
+    # Load pre-trained tokenizer
+    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, 
+                                                     max_len=config.max_position_embeddings) #orginally set as 514
+
+    
+    # Set device    
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     #device = torch.device('cpu')
     print('Device:', device)
@@ -197,28 +198,10 @@ if __name__ == '__main__':
         print('Memory Usage:')
         print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
         print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
-    # model.to(device)
-    # optim = AdamW(model.parameters(), lr=lr)
     
-    # set up wandb
-    # now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    # run_name = f'epoch{num_epochs}_bs{batch_size}_{now}' #f"run{now}"
-    # wandb.init(project='catbert-pt', name=run_name, dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
-    # wandb.watch(model, log="all")
-
-
-    # training loop
-    # for epoch in range(num_epochs):
-    #     loss = train(model, dataloader, optim, device)
-    #     print(f"Epoch: {epoch+1}, Loss: {loss:.4f}")
-    #     #model.save_pretrained('model'
-    #     if epoch%2 == 0:
-    #         wandb.log({"loss": loss})
-    
-    # torch.save(model.state_dict(), f'./checkpoint/pretrain/{run_name}.pt')
-    # wandb.finish()
+    # run pretraining
     run_pretraining(df_train, df_val, 
                     tokenizer, model, 
-                    device, lr, 
-                    batch_size, num_epochs)
+                    device, params,
+                    save_path="./checkpoint/pretrain/")
 
