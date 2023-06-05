@@ -1,1 +1,25 @@
-{"vocab_size": 30522, "max_position_embeddings": 514, "hidden_size": 768, "num_attention_heads": 12, "num_hidden_layers": 6, "type_vocab_size": 1}
+{
+"pretrain_params": {
+                    "num_epochs": 10, 
+                    "lr": 0.0001, 
+                    "batch_size": 16,
+                    "early_stop_threshold": 3
+                    }, 
+"finetune_params": {
+                    "num_epochs": 5, 
+                    "batch_size": 16, 
+                    "early_stop_threshold": 3,
+                    "warmup_steps": 0,
+                    "optimizer": "AdamW",
+                    "model_head": "attnhead",
+                    "loss_fn": "rmse"
+                    }, 
+"roberta_config": {
+                    "vocab_size": 30522, 
+                    "max_position_embeddings": 768,
+                    "hidden_size": 768, 
+                    "num_attention_heads": 12, 
+                    "num_hidden_layers": 12, 
+                    "type_vocab_size": 1
+                    }
+}

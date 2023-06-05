@@ -3,7 +3,7 @@ from pathlib import Path
 from model.dataset import stratified_kfold 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from transformers import AdamW
+# from transformers import AdamW
 from tqdm import tqdm 
 import wandb
 import datetime
@@ -127,7 +127,7 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
     # Training loop
     # ===============================================
     model.to(device)
-    optim = AdamW(model.parameters(), lr=lr)
+    optim = torch.optim.AdamW(model.parameters(), lr=lr)
     best_loss = 999
     early_stopping_counter = 0
     for epoch in range(1, num_epochs+1):
@@ -161,7 +161,8 @@ if __name__ == '__main__':
     # ==========================================================
     # Set up paths for data, model, tokenizer, and results
     # ==========================================================
-    train_data_path = "./data/df_train.pkl"
+    train_data_path = "./data/df_is2re_100k.pkl"
+    val_data_path = "./data/df_is2re_val_25k.pkl"
     config_path = "./config/roberta_config.json"
     tknz_path = "./tokenizer"
     # ==========================================================
@@ -173,12 +174,15 @@ if __name__ == '__main__':
     # Hyperparameters for training
     params = loaded_dict['pretrain_params']
    
-    # Load training files 
-    df = pd.read_pickle(train_data_path)
+    # Load training/validation data w/o stratified kfold
+    df_train = pd.read_pickle(train_data_path)
+    df_val = pd.read_pickle(train_data_path)
+    # Load training data w/ stratified kfold
+    # df = pd.read_pickle(train_data_path)
     # df = df.iloc[:10000] # for code testing
-    df = stratified_kfold(df, n_splits=5)
-    df_train = df[df['skfold']!=0]
-    df_val = df[df['skfold']==0]
+    # df = stratified_kfold(df, n_splits=5)
+    # df_train = df[df['skfold']!=0]
+    # df_val = df[df['skfold']==0]
 
     # Load model
     config = RobertaConfig.from_dict(loaded_dict["roberta_config"])

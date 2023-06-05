@@ -7,13 +7,13 @@ import pandas as pd
 
 file_path = os.path.abspath(__file__)
 home_path = os.path.dirname(os.path.dirname(file_path))
-save_path = os.path.join(home_path, 'data', 'df_train.pkl')
+#save_path = os.path.join(home_path, 'data', 'df_train.pkl')
 
 # Collect training files for tokenizer
 # paths = [str(x) for x in Path('../data/train').glob('random*.txt')]
 
 # Collect training text from dataframe
-df = pd.read_pickle('../data/df_train.pkl')
+df = pd.read_pickle('../data/df_is2re_100k.pkl')
 texts = df['text'].values.tolist()
 print('Number of training texts: ', len(texts))
 
