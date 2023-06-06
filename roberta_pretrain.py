@@ -63,13 +63,9 @@ def get_encodings_from_texts(texts, tokenizer):
             'labels': labels}
 
 # train function
-def train(model, dataloader, optim, device, mode):
-    if mode == 'train':    
-        model.train()
-        print('training...')
-    elif mode == 'val':
-        model.eval()
-        print('validating...')
+def train(model, dataloader, optim, device):    
+    model.train()
+    print('training...')
     loop = tqdm(dataloader, leave=True)
     total_loss = 0
     for batch in loop:
@@ -83,6 +79,23 @@ def train(model, dataloader, optim, device, mode):
         optim.step()
 
         total_loss += loss.item()
+    return total_loss / len(dataloader)
+
+
+def validate(model, dataloader, device):
+    model.eval()
+    print('validating...')
+    loop = tqdm(dataloader, leave=True)
+    total_loss = 0
+    with torch.no_grad():
+        for batch in loop:
+        
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
+            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+            loss = outputs.loss
+            total_loss += loss.item()
     return total_loss / len(dataloader)
 
 # roberta dataset class
@@ -106,8 +119,9 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
     now = datetime.datetime.now().strftime('%m%d_%H%M')
     run_name = f'len{tokenizer.model_max_length}_ep{num_epochs}_bs{batch_size}_{now}'
     wandb.init(project="catbert-pt", name=run_name, dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
-    
-
+    print("===============================================")
+    print(f"Run name: {run_name}")
+    print("===============================================")
     # ===============================================
     # Prepare data and model for training
     # ===============================================
@@ -131,8 +145,8 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
     best_loss = 999
     early_stopping_counter = 0
     for epoch in range(1, num_epochs+1):
-        train_loss = train(model, train_dataloader, optim, device, mode='train')
-        val_loss = train(model, val_dataloader, optim, device, mode='val')
+        train_loss = train(model, train_dataloader, optim, device)
+        val_loss = validate(model, val_dataloader, device)
         loss = val_loss
         wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'lr': lr})
         if loss < best_loss:

@@ -19,7 +19,7 @@ class MyModel(nn.Module):
 
 class MyModel2(nn.Module):
             
-    def __init__(self, model, reinit_n_layers=5):        
+    def __init__(self, model, reinit_n_layers=3):        
         super().__init__() 
         self.roberta_model = model 
         self.regressor = nn.Linear(768, 1)

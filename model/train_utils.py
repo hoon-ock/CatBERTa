@@ -175,7 +175,7 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
 
     # Load model and send it to the device.        
     if model_head == "pooler":
-        model = MyModel(model).to(device) 
+        model = MyModel2(model).to(device) 
     elif model_head == "mlp":
         model = MyModel_MLP(model).to(device)
     elif model_head == "attnhead":

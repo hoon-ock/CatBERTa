@@ -1,8 +1,13 @@
 import pandas as pd
 import torch
-from transformers import RobertaConfig, RobertaTokenizer, RobertaModel, RobertaTokenizerFast
+from transformers import (RobertaConfig, RobertaTokenizer, 
+                          RobertaForMaskedLM, RobertaModel, 
+                          RobertaTokenizerFast)
 from model.train_utils import run_training
 from model.dataset import stratified_kfold
+from model.regressors import (MyModel, MyModel2, 
+                              MyModel_MLP, MyModel_AttnHead, 
+                              MyModel_ConcatLast4Layers)
 import json
 
 
@@ -12,11 +17,13 @@ import json
 train_data_path = "./data/df_is2re_100k.pkl"
 val_data_path = "./data/df_is2re_val_25k.pkl"
 config_path = "./config/roberta_config.json"
-ckpt_path = "./checkpoint/pretrain/len768_ep10_bs16_0602_1820/"
+ckpt_path = "./checkpoint/pretrain/len512_ep10_bs16_0605_1329/"
+#"./checkpoint/pretrain/len768_ep10_bs16_0530_0136/"
+
 #"./checkpoint/pretrain/len768_ep10_bs16_0530_1554/"
 #"./checkpoint/pretrain/len768_ep5_bs16_0529_1555.pt"
 tknz_path = "./tokenizer"
-custom_save_path = "./results/dummy/"
+# custom_save_path = "./results/dummy/"
 # ==========================================================
 
 # Load data
@@ -37,10 +44,14 @@ params = loaded_dict['finetune_params']
 
 # Load (pre-trained) model
 # config = RobertaConfig.from_dict(loaded_dict['roberta_config'])
-# model = RobertaModel.from_pretrained('roberta-base')
-                                    #   config=config,
-                                    #  ignore_mismatched_sizes=True)
-model = RobertaModel.from_pretrained(ckpt_path) #, config=config)
+# model = RobertaModel.from_pretrained('roberta-base', 
+#                                      config=config, 
+#                                      ignore_mismatched_sizes=True)
+    
+model = RobertaModel.from_pretrained(ckpt_path)
+#model = MyModel(model) #RobertaModel.from_pretrained(ckpt_path, config=config)
+#model.load_state_dict(torch.load(ckpt_path))
+# import pdb; pdb.set_trace()
 max_len = model.embeddings.position_embeddings.num_embeddings
 # Load (pre-trained) tokenizer
 # tokenizer =  RobertaTokenizer.from_pretrained("roberta-base")
@@ -59,4 +70,4 @@ if device.type == 'cuda':
 
 # run training
 run_training(df_train, df_val, params, model,tokenizer,device, 
-             run_name='100k_own-tknz-mdl_attnhd') 
+             run_name='100k_own-tknz-mdl_pooler_reinit3_maxlen512-re') #gLLRD_wrmup50_ 
