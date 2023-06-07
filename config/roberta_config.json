@@ -6,12 +6,12 @@
                     "early_stop_threshold": 3
                     }, 
 "finetune_params": {
-                    "num_epochs": 5, 
+                    "num_epochs": 10, 
                     "batch_size": 16, 
                     "early_stop_threshold": 3,
                     "warmup_steps": 0,
                     "optimizer": "AdamW",
-                    "model_head": "attnhead",
+                    "model_head": "mlp",
                     "loss_fn": "rmse"
                     }, 
 "roberta_config": {

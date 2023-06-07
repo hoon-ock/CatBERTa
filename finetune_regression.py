@@ -18,21 +18,13 @@ train_data_path = "./data/df_is2re_100k.pkl"
 val_data_path = "./data/df_is2re_val_25k.pkl"
 config_path = "./config/roberta_config.json"
 ckpt_path = "./checkpoint/pretrain/len512_ep10_bs16_0605_1329/"
-#"./checkpoint/pretrain/len768_ep10_bs16_0530_0136/"
-
-#"./checkpoint/pretrain/len768_ep10_bs16_0530_1554/"
-#"./checkpoint/pretrain/len768_ep5_bs16_0529_1555.pt"
+# len512_ep10_bs16_0605_1329, len768_ep10_bs16_0602_1820
 tknz_path = "./tokenizer"
-# custom_save_path = "./results/dummy/"
 # ==========================================================
 
 # Load data
 df_train = pd.read_pickle(train_data_path)
 df_val = pd.read_pickle(val_data_path)
-#df = df.iloc[:20000] # for code testing
-# for debugging
-# df_train = df_train.iloc[:500]
-# df_val = df_val.iloc[:200]
 print("Training data size: " + str(df_train.shape[0]))
 print("Validation data size : " + str(df_val.shape[0]))
 
@@ -67,7 +59,8 @@ if device.type == 'cuda':
     print('Memory Usage:')
     print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
     print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
-
+    print('empty cache!')
+    torch.cuda.empty_cache()
 # run training
-run_training(df_train, df_val, params, model,tokenizer,device, 
-             run_name='100k_own-tknz-mdl_pooler_reinit3_maxlen512-re') #gLLRD_wrmup50_ 
+run_training(df_train, df_val, params, model,tokenizer, device, 
+             run_name='100k_mlp_len512_lr5e-7') #gLLRD_wrmup50_ 

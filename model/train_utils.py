@@ -175,7 +175,7 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
 
     # Load model and send it to the device.        
     if model_head == "pooler":
-        model = MyModel2(model).to(device) 
+        model = MyModel(model).to(device) 
     elif model_head == "mlp":
         model = MyModel_MLP(model).to(device)
     elif model_head == "attnhead":
@@ -187,7 +187,7 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     wandb.watch(model, log="all")
     # Get the AdamW optimizer
     if params.get("optimizer") == "AdamW":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-6)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=5e-7) #originally 1e-6
     elif params.get("optimizer") == "gLLRD":
         optimizer, _ = roberta_base_AdamW_grouped_LLRD(model)
     # Calculate the number of training steps (this is used by scheduler).
