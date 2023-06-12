@@ -9,15 +9,15 @@ from model.regressors import (MyModel, MyModel2,
                               MyModel_MLP, MyModel_AttnHead, 
                               MyModel_ConcatLast4Layers)
 import json
-
+from sklearn.model_selection import train_test_split
 
 # ==========================================================
 # Set up paths for data, model, tokenizer, and results
 # ==========================================================
-train_data_path = "./data/df_is2re_100k.pkl"
-val_data_path = "./data/df_is2re_val_25k.pkl"
+train_data_path = "./data/df_is2re_100k_new.pkl"
+val_data_path = "./data/df_is2re_val_25k_new.pkl"
 config_path = "./config/roberta_config.json"
-ckpt_path = "./checkpoint/pretrain/len512_ep10_bs16_0605_1329/"
+ckpt_path = "./checkpoint/pretrain/len768_ep10_bs16_0602_1820/"
 # len512_ep10_bs16_0605_1329, len768_ep10_bs16_0602_1820
 tknz_path = "./tokenizer"
 # ==========================================================
@@ -25,6 +25,11 @@ tknz_path = "./tokenizer"
 # Load data
 df_train = pd.read_pickle(train_data_path)
 df_val = pd.read_pickle(val_data_path)
+# for debugging
+# df_train = df_train.sample(1000, random_state=42)
+# df_val = df_val.sample(100, random_state=42)
+test_size = 0.2
+df_train, df_val = train_test_split(df_train, test_size=test_size, random_state=42)
 print("Training data size: " + str(df_train.shape[0]))
 print("Validation data size : " + str(df_val.shape[0]))
 
@@ -41,15 +46,12 @@ params = loaded_dict['finetune_params']
 #                                      ignore_mismatched_sizes=True)
     
 model = RobertaModel.from_pretrained(ckpt_path)
-#model = MyModel(model) #RobertaModel.from_pretrained(ckpt_path, config=config)
-#model.load_state_dict(torch.load(ckpt_path))
-# import pdb; pdb.set_trace()
 max_len = model.embeddings.position_embeddings.num_embeddings
+
 # Load (pre-trained) tokenizer
 # tokenizer =  RobertaTokenizer.from_pretrained("roberta-base")
-tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, 
-                                                 max_len=max_len)
-
+tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+#import pdb; pdb.set_trace()
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,4 +65,4 @@ if device.type == 'cuda':
     torch.cuda.empty_cache()
 # run training
 run_training(df_train, df_val, params, model,tokenizer, device, 
-             run_name='100k_mlp_len512_lr5e-7') #gLLRD_wrmup50_ 
+             run_name='n80k_mlp_len768_lr5e-7_L2-wd001_sch-const')

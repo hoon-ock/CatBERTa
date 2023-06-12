@@ -10,7 +10,9 @@ class MyDataset(torch.utils.data.Dataset):
         self.targets = targets
         self.tokenizer = tokenizer
         self.seq_len = seq_len # 400 was set as the default originally  
-    
+        # self.mean = mean 
+        # self.std = std 
+        
     def __len__(self):
         """Returns the length of dataset."""
         return len(self.texts)
@@ -29,7 +31,9 @@ class MyDataset(torch.utils.data.Dataset):
             add_special_tokens = True,  # Whether to insert [CLS], [SEP], <s>, etc.   
             return_attention_mask = True            
         )     
-        
+        # Normalization of target values
+        # target = (self.targets[idx] - self.mean) / self.std
+
         return {"ids": torch.tensor(tokenized["input_ids"], dtype=torch.long),
                 "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
                 "target": torch.tensor(self.targets[idx], dtype=torch.float)
