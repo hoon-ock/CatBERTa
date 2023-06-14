@@ -9,29 +9,34 @@ import wandb
 from tqdm import tqdm
 import datetime
 
+# def _save_config_file(model_checkpoints_folder):
+#     if not os.path.exists(model_checkpoints_folder):
+#         os.makedirs(model_checkpoints_folder)
+#         shutil.copy('./config_ft_cgcnn.yaml', os.path.join(model_checkpoints_folder, 'config_ft_cgcnn.yaml'))
+
 def mae_loss_fn(predictions, targets):
     return torch.mean(torch.abs(targets - predictions))
 
 def rmse_loss_fn(predictions, targets):       
     return torch.sqrt(nn.MSELoss()(predictions, targets))
 
-def plot_lr_schedule(learning_rates, save_file_path):
-    x = np.arange(len(learning_rates))
-    plt.plot(x, learning_rates)
-    plt.title(f'Linear schedule')
-    plt.ylabel("Learning Rate")
-    plt.xlabel("Training Steps")
-    plt.savefig(os.path.join(save_file_path, "lr_schedule.png"))
+# def plot_lr_schedule(learning_rates, save_file_path):
+#     x = np.arange(len(learning_rates))
+#     plt.plot(x, learning_rates)
+#     plt.title(f'Linear schedule')
+#     plt.ylabel("Learning Rate")
+#     plt.xlabel("Training Steps")
+#     plt.savefig(os.path.join(save_file_path, "lr_schedule.png"))
 
-def plot_train_val_losses(train_losses, val_losses, fold, save_file_path):
-    x = np.arange(len(train_losses))
-    plt.plot(x, train_losses, label="training loss", marker='o')
-    plt.plot(x, val_losses, label="validation loss", marker='o')
-    plt.legend(loc="best")   # to show the labels.
-    plt.title(f'Fold {fold}')    
-    plt.ylabel("Loss")
-    plt.xlabel(f"Epoch")    
-    plt.savefig(os.path.join(save_file_path, f"fold_{fold}_loss.png"))
+# def plot_train_val_losses(train_losses, val_losses, fold, save_file_path):
+#     x = np.arange(len(train_losses))
+#     plt.plot(x, train_losses, label="training loss", marker='o')
+#     plt.plot(x, val_losses, label="validation loss", marker='o')
+#     plt.legend(loc="best")   # to show the labels.
+#     plt.title(f'Fold {fold}')    
+#     plt.ylabel("Loss")
+#     plt.xlabel(f"Epoch")    
+#     plt.savefig(os.path.join(save_file_path, f"fold_{fold}_loss.png"))
 
 def roberta_base_AdamW_grouped_LLRD(model, debug=False):
         

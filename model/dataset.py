@@ -38,7 +38,45 @@ class MyDataset(torch.utils.data.Dataset):
                 "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
                 "target": torch.tensor(self.targets[idx], dtype=torch.float)
                }
+
+
+class PretrainDataset(torch.utils.data.Dataset):
+   
+    def __init__(self, texts, ads_size, ads_class, bulk_class, tokenizer, seq_len=500): 
+        self.texts = texts
+        self.ads_size = ads_size
+        self.ads_class = ads_class
+        self.bulk_class = bulk_class
+        self.tokenizer = tokenizer
+        self.seq_len = seq_len 
+        
+    def __len__(self):
+        """Returns the length of dataset."""
+        return len(self.texts)
     
+    def __getitem__(self, idx):
+        """
+        For a given item index, return a dictionary of encoded information        
+        """        
+        text = str(self.texts[idx]) 
+        
+        tokenized = self.tokenizer(
+            text,            
+            max_length = self.seq_len,                                
+            padding = "max_length",     # Pad to the specified max_length. 
+            truncation = True,          # Truncate to the specified max_length. 
+            add_special_tokens = True,  # Whether to insert [CLS], [SEP], <s>, etc.   
+            return_attention_mask = True            
+        )     
+
+
+        return {"ids": torch.tensor(tokenized["input_ids"], dtype=torch.long),
+                "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
+                "ads_size": torch.tensor(self.ads_size[idx], dtype=torch.int),
+                "ads_class": torch.tensor(self.ads_class[idx], dtype=torch.int),
+                "bulk_class": torch.tensor(self.bulk_class[idx], dtype=torch.int)
+               }
+
 
 def stratified_kfold(df, n_splits=5):
     """
