@@ -72,9 +72,11 @@ class PretrainDataset(torch.utils.data.Dataset):
 
         return {"ids": torch.tensor(tokenized["input_ids"], dtype=torch.long),
                 "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
-                "ads_size": torch.tensor(self.ads_size[idx], dtype=torch.int),
-                "ads_class": torch.tensor(self.ads_class[idx], dtype=torch.int),
-                "bulk_class": torch.tensor(self.bulk_class[idx], dtype=torch.int)
+                "labels":{
+                          "ads_size": torch.tensor(self.ads_size[idx]),
+                          "ads_class": torch.tensor(self.ads_class[idx]),
+                          "bulk_class": torch.tensor(self.bulk_class[idx])
+                }
                }
 
 

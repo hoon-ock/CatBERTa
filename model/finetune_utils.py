@@ -88,7 +88,7 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
     model.train()                               # Put the model in training mode.                   
     lr_list = []
     train_losses = []
-    print('training')
+    print('training...')
     for batch in tqdm(data_loader):                   # Loop over all batches.
 
         ids = batch["ids"].to(device, dtype=torch.long)
@@ -109,7 +109,7 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
         optimizer.step()                        # To update parameters based on current gradients.
         lr_list.append(optimizer.param_groups[0]["lr"])
         scheduler.step()                        # To update learning rate.    
-    return train_losses, lr_list
+    return np.mean(train_losses), np.mean(lr_list)
 
 def validate_fn(data_loader, model, device, loss_fn='rmse'):  
     model.eval()                                    # Put model in evaluation mode.
@@ -137,7 +137,7 @@ def validate_fn(data_loader, model, device, loss_fn='rmse'):
                 mae = mae_loss_fn(outputs, targets)                               
             val_losses.append(loss.item())
             val_maes.append(mae.item())           
-    return val_losses, val_maes 
+    return np.mean(val_losses), np.mean(val_maes) 
 
 
 def run_training(df_train, df_val, params, model, tokenizer, device, run_name):  
@@ -152,12 +152,11 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     warmup_steps = params["warmup_steps"] if params.get("warmup_steps") else 0 # warmup step for scheduler
     model_head = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
     loss_fn = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
-    # mean = df_train["target"].mean()
-    # std = df_train["target"].std()
+
     # ========================================================================
     # Prepare logging and saving path
     # ========================================================================
-    #now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
     print("=============================================================")
     print(f"{run_name} is launched")
     print("=============================================================")
@@ -174,13 +173,11 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     train_dataset = MyDataset(texts = df_train["text"].values,
                               targets = df_train["target"].values,
                               tokenizer = tokenizer,
-                            #   mean = mean, std = std,
                               seq_len= tokenizer.model_max_length-2)
     # Initialize validation dataset
     val_dataset = MyDataset(texts = df_val["text"].values,
                             targets = df_val["target"].values,
                             tokenizer = tokenizer,
-                            # mean = mean, std = std,
                             seq_len= tokenizer.model_max_length-2)
     # Create training dataloader
     train_data_loader = DataLoader(train_dataset, batch_size = TRAIN_BS,
@@ -225,19 +222,16 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     early_stopping_counter = 0       
     for epoch in range(1, EPOCHS+1):
         # Call the train function and get the training loss
-        train_losses, lr_list = train_fn(train_data_loader, model, optimizer, device, scheduler, loss_fn)
-        train_loss = np.mean(train_losses)   
+        train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler, loss_fn)
         # Perform validation and get the validation loss
-        val_losses, val_maes = validate_fn(val_data_loader, model, device, loss_fn)
-        val_loss = np.mean(val_losses)
-        val_mae = np.mean(val_maes) 
+        val_loss, val_mae = validate_fn(val_data_loader, model, device, loss_fn)
+
         loss = val_loss
-        wandb.log({"train_loss": train_loss, "val_loss": val_loss, "val_mae": val_mae,'lr': lr_list[-1]})
+        wandb.log({"train_loss": train_loss, "val_loss": val_loss, "val_mae": val_mae,'lr': lr})
         # If there's improvement on the validation loss, save the model checkpoint.
         # Else do early stopping if threshold is reached.
         if loss < best_loss:            
             save_ckpt_path = os.path.join("./checkpoint/finetune/", run_name+".pt")
-            #print(save_ckpt_path)
             torch.save(model.state_dict(), save_ckpt_path)
             print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}, checkpoint saved.")
             best_loss = loss
