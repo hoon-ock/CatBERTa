@@ -4,13 +4,13 @@ pretrain_params:
   batch_size: 16
   lr: 0.0001
   early_stop_threshold: 3
-  model_head: multi
+  model_head: multilabel
 
 finetune_params:
   num_epochs: 10
   batch_size: 16
-  early_stop_threshold: 3
   lr: 5e-7
+  early_stop_threshold: 3
   warmup_steps: 0
   optimizer: AdamW
   model_head: mlp

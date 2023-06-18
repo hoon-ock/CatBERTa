@@ -1,0 +1,17 @@
+params:
+  num_epochs: 1
+  batch_size: 4
+  lr: 5.0e-7
+  early_stop_threshold: 3
+  scheduler: constant # constant, linear
+  warmup_steps: 0
+  optimizer: AdamW    # AdamW, gLLRD
+  model_head: mlp     # pooler, mlp, mlp2, attnhead, concatlayer
+  loss_fn: L2         # mae, rmse, L2
+
+paths:
+  train_data: "./data/df_is2re_100k.pkl"
+  val_data: "./data/df_is2re_val_25k.pkl"
+  ft_config: "./config/ft_config.yaml"
+  pt_ckpt: "./checkpoint/pretrain/run_name"
+  tknz: "./tokenizer"

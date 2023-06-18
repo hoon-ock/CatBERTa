@@ -1,0 +1,14 @@
+params:
+  num_epochs: 1
+  batch_size: 4
+  lr: 1.0e-5
+  early_stop_threshold: 3
+  scheduler: constant       # constant, linear
+  warmup_steps: 0
+  model_head: multilabel
+
+paths:
+  train_data: "./data/df_train_w_class.pkl"
+  val_data: "./data/df_val_w_class.pkl"
+  roberta_config: "./config/roberta_config.yaml"
+  tknz: "./tokenizer"

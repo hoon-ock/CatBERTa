@@ -1,18 +1,12 @@
 import numpy as np
 import torch, transformers, os
 import torch.nn as nn
-import matplotlib.pyplot as plt 
 from torch.utils.data import DataLoader
-from model.regressors import MyModel, MyModel2, MyModel_MLP, MyModel_MLP2, MyModel_AttnHead, MyModel_ConcatLast4Layers
-from model.dataset import MyDataset
+from model.dataset import FinetuneDataset
 import wandb
 from tqdm import tqdm
-import datetime
 
-# def _save_config_file(model_checkpoints_folder):
-#     if not os.path.exists(model_checkpoints_folder):
-#         os.makedirs(model_checkpoints_folder)
-#         shutil.copy('./config_ft_cgcnn.yaml', os.path.join(model_checkpoints_folder, 'config_ft_cgcnn.yaml'))
+
 
 def mae_loss_fn(predictions, targets):
     return torch.mean(torch.abs(targets - predictions))
@@ -20,25 +14,8 @@ def mae_loss_fn(predictions, targets):
 def rmse_loss_fn(predictions, targets):       
     return torch.sqrt(nn.MSELoss()(predictions, targets))
 
-# def plot_lr_schedule(learning_rates, save_file_path):
-#     x = np.arange(len(learning_rates))
-#     plt.plot(x, learning_rates)
-#     plt.title(f'Linear schedule')
-#     plt.ylabel("Learning Rate")
-#     plt.xlabel("Training Steps")
-#     plt.savefig(os.path.join(save_file_path, "lr_schedule.png"))
 
-# def plot_train_val_losses(train_losses, val_losses, fold, save_file_path):
-#     x = np.arange(len(train_losses))
-#     plt.plot(x, train_losses, label="training loss", marker='o')
-#     plt.plot(x, val_losses, label="validation loss", marker='o')
-#     plt.legend(loc="best")   # to show the labels.
-#     plt.title(f'Fold {fold}')    
-#     plt.ylabel("Loss")
-#     plt.xlabel(f"Epoch")    
-#     plt.savefig(os.path.join(save_file_path, f"fold_{fold}_loss.png"))
-
-def roberta_base_AdamW_grouped_LLRD(model, debug=False):
+def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
         
     opt_parameters = [] # To be passed to the optimizer (only parameters of the layers you want to update).
     debug_param_groups = []
@@ -49,7 +26,6 @@ def roberta_base_AdamW_grouped_LLRD(model, debug=False):
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
     set_2 = ["layer.4", "layer.5", "layer.6", "layer.7"]
     set_3 = ["layer.8", "layer.9", "layer.10", "layer.11"]
-    init_lr = 5e-7 #1e-6
     
     for i, (name, params) in enumerate(named_parameters):  
         
@@ -115,8 +91,6 @@ def validate_fn(data_loader, model, device, loss_fn='rmse'):
     model.eval()                                    # Put model in evaluation mode.
     val_losses = []
     val_maes = []
-    #mean = data_loader.dataset.mean
-    # std = data_loader.dataset.std  
     print('validation')
     with torch.no_grad():                           # Disable gradient calculation.
         for batch in tqdm(data_loader):                   # Loop over all batches.   
@@ -140,18 +114,18 @@ def validate_fn(data_loader, model, device, loss_fn='rmse'):
     return np.mean(val_losses), np.mean(val_maes) 
 
 
-def run_training(df_train, df_val, params, model, tokenizer, device, run_name):  
-    
-    """
-    model_head: Accepted option is "pooler", "attnhead", or "concatlayer"
-    """    
+def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name):  
+
+    # Hyperparameters and settings   
     EPOCHS = params["num_epochs"]
     EARLY_STOP_THRESHOLD = params["early_stop_threshold"]  # Set the early stopping threshold    
     TRAIN_BS = params["batch_size"]  # Training batch size
     VAL_BS = TRAIN_BS            # Validation batch size
-    warmup_steps = params["warmup_steps"] if params.get("warmup_steps") else 0 # warmup step for scheduler
-    model_head = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
-    loss_fn = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
+    LR = params["lr"] if params.get("lr") else 1e-6 # Learning rate
+    WRMUP = params["warmup_steps"] if params.get("warmup_steps") else 0 # warmup step for scheduler
+    SCHD = params["scheduler"] if params.get("scheduler") else "linear" # scheduler type
+    #HEAD = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
+    LOSSFN = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
 
     # ========================================================================
     # Prepare logging and saving path
@@ -160,22 +134,20 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     print("=============================================================")
     print(f"{run_name} is launched")
     print("=============================================================")
-    # run_name = f"{model_head}_{loss_fn}_{np.round(len(df_train)/1000)}k"
-    # if 'args' in kwargs.keys():
-    #     run_name += '_'+kwargs['args']
     
-    wandb.init(project="catbert-ft", name=run_name, dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
+    wandb.init(project="catbert-ft", name=run_name, dir='./log')
+               #dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
     
     #=========================================================================
     # Prepare data and model for training
     #=========================================================================   
     # Initialize training dataset
-    train_dataset = MyDataset(texts = df_train["text"].values,
+    train_dataset = FinetuneDataset(texts = df_train["text"].values,
                               targets = df_train["target"].values,
                               tokenizer = tokenizer,
                               seq_len= tokenizer.model_max_length-2)
     # Initialize validation dataset
-    val_dataset = MyDataset(texts = df_val["text"].values,
+    val_dataset = FinetuneDataset(texts = df_val["text"].values,
                             targets = df_val["target"].values,
                             tokenizer = tokenizer,
                             seq_len= tokenizer.model_max_length-2)
@@ -186,34 +158,24 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     val_data_loader = DataLoader(val_dataset, batch_size = VAL_BS,
                                  shuffle = False, num_workers = 2)
 
-    # Load model and send it to the device.        
-    if model_head == "pooler":
-        model = MyModel(model).to(device) 
-    elif model_head == "mlp":
-        model = MyModel_MLP(model).to(device)
-    elif model_head == "mlp2":
-        model = MyModel_MLP2(model).to(device)
-    elif model_head == "attnhead":
-        model = MyModel_AttnHead(model).to(device)
-    elif model_head == "concatlayer":
-        model = MyModel_ConcatLast4Layers(model).to(device)
-    else:
-        raise ValueError(f"Unknown model_head: {model_head}") 
+    # Load model and send it to the device.
+    model = model.to(device)        
+
     wandb.watch(model, log="all")
     # Get the AdamW optimizer
     if params.get("optimizer") == "AdamW":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=5e-7, weight_decay=0.01) #originally 1e-6
+        optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.01) #originally 1e-6
     elif params.get("optimizer") == "gLLRD":
-        optimizer, _ = roberta_base_AdamW_grouped_LLRD(model)
+        optimizer, _ = roberta_base_AdamW_grouped_LLRD(model, LR)
     # Calculate the number of training steps (this is used by scheduler).
     # training steps = [number of batches] x [number of epochs].
     train_steps = int(len(df_train) / TRAIN_BS * EPOCHS)    
     # Get the learning rate scheduler    
     scheduler = transformers.get_scheduler(
-                    "constant",    # Create a schedule with a learning rate that decreases linearly 
+                    SCHD,    # Create a schedule with a learning rate that decreases linearly 
                                  # from the initial learning rate set in the optimizer to 0.
                     optimizer = optimizer,
-                    num_warmup_steps = warmup_steps, #50
+                    num_warmup_steps = WRMUP, #50
                     num_training_steps = train_steps)
     #=========================================================================
     # Training Loop - Start training the epochs
@@ -222,17 +184,19 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
     early_stopping_counter = 0       
     for epoch in range(1, EPOCHS+1):
         # Call the train function and get the training loss
-        train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler, loss_fn)
+        train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler, LOSSFN)
         # Perform validation and get the validation loss
-        val_loss, val_mae = validate_fn(val_data_loader, model, device, loss_fn)
+        val_loss, val_mae = validate_fn(val_data_loader, model, device, LOSSFN)
 
         loss = val_loss
         wandb.log({"train_loss": train_loss, "val_loss": val_loss, "val_mae": val_mae,'lr': lr})
         # If there's improvement on the validation loss, save the model checkpoint.
         # Else do early stopping if threshold is reached.
         if loss < best_loss:            
-            save_ckpt_path = os.path.join("./checkpoint/finetune/", run_name+".pt")
-            torch.save(model.state_dict(), save_ckpt_path)
+            save_ckpt_path = os.path.join("./checkpoint/finetune/", run_name)
+            if not os.path.exists(save_ckpt_path):
+                os.makedirs(save_ckpt_path)
+            torch.save(model.state_dict(), os.path.join(save_ckpt_path, 'checkpoint.pt'))
             print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}, checkpoint saved.")
             best_loss = loss
             early_stopping_counter = 0
@@ -242,6 +206,7 @@ def run_training(df_train, df_val, params, model, tokenizer, device, run_name):
         if early_stopping_counter > EARLY_STOP_THRESHOLD:
             print(f"Early stopping triggered at epoch {epoch}! Best Loss: {round(best_loss,3)}\n")                
             break
+
     print(f"===== Training Termination =====")        
     wandb.finish()
 

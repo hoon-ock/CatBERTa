@@ -5,18 +5,18 @@ import os
 import shutil
 from transformers import (RobertaConfig, RobertaTokenizer, 
                           RobertaModel, RobertaTokenizerFast)
-from model.finetune_utils import run_finetuning
+from model.pretrain_utils import run_pretraining
 from model.common import backbone_wrapper
 from datetime import datetime
 
 # ==========================================================
 # Set up paths for data, model, tokenizer, and results
 # ==========================================================
-ft_config_path = "./config/ft_config.yaml"
-paths = yaml.load(open(ft_config_path, "r"), Loader=yaml.FullLoader)['paths']
-train_data_path = paths["train_data"] 
-val_data_path = paths["val_data"] 
-pt_ckpt_path = paths["pt_ckpt"] 
+pt_config_path = "./config/pt_config.yaml"
+paths = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['paths']
+train_data_path = paths["train_data"]
+val_data_path = paths["val_data"]
+rbt_config_path = paths["roberta_config"]
 tknz_path = paths["tknz"]
 # ==========================================================
 
@@ -30,14 +30,13 @@ print("Training data size: " + str(df_train.shape[0]))
 print("Validation data size : " + str(df_val.shape[0]))
 
 # Set hyperparameters
-params = yaml.load(open(ft_config_path, "r"), Loader=yaml.FullLoader)['params']
-config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)['roberta_config']
+params = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['params']
+config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader)['roberta_config']
 roberta_config = RobertaConfig.from_dict(config)
 
 # Load pre-trained backbone model
 backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-pt_ckpt = torch.load(os.path.join(pt_ckpt_path, 'checkpoint.pt'))
-backbone.load_state_dict(pt_ckpt, strict=False)
+
 model = backbone_wrapper(backbone, params['model_head'])
 # if start training from pretrained header
 # model = model.load_state_dict(torch.load(ckpt_path2)) #torch.load(ckpt_path)
@@ -57,10 +56,9 @@ if device.type == 'cuda':
     print('empty cache!')
     torch.cuda.empty_cache()
 # run training
-run_name = 'ft'+datetime.now().strftime("_%m%d_%H%M")
-run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name= run_name)
+run_name = "debugging" #'pt'+datetime.now().strftime("_%m%d_%H%M")
+run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name=run_name)
 
 # save config files for reference
-import pdb;pdb.set_trace()
-shutil.copy(ft_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "pt_config.yaml"))
-shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(f"./checkpoint/pretrain/{run_name}", "roberta_config.yaml"))
+shutil.copy(pt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "pt_config.yaml"))
+shutil.copy(rbt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "roberta_config.yaml"))

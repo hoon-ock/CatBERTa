@@ -15,24 +15,24 @@ def get_num_atoms(ads):
 
 # classify the number of atoms into 3 categories
 def get_ads_size(ads):
-    # 1 (small): 1-2 atoms
-    # 2 (medium): 3-5 atoms
-    # 3 (large): 6+ atoms
+    # 0 (small): 1-2 atoms
+    # 1 (medium): 3-5 atoms
+    # 2 (large): 6+ atoms
     num_atoms = get_num_atoms(ads)
     if num_atoms <= 2:
-        return 1
+        return 0
     elif num_atoms <= 5:
-        return 2
+        return 1
     else:
-        return 3
+        return 2
     
 # classify types of adsorbates into 5 categories
 def get_ads_category(ads):
-    # 1: O&H
-    # 2: C1
-    # 3: C2
-    # 4: N1
-    # 5: N2
+    # 0: O&H
+    # 1: C1
+    # 2: C2
+    # 3: N1
+    # 4: N2
     
     # split ads into elements
     elements = []
@@ -66,15 +66,15 @@ def get_ads_category(ads):
         
     # classify into 5 categories
     if num_N == 2:
-        return 5
-    elif num_N == 1:
         return 4
-    elif num_C == 2:
+    elif num_N == 1:
         return 3
-    elif num_C == 1:
+    elif num_C == 2:
         return 2
-    elif num_O >= 1 or num_H >=1:
+    elif num_C == 1:
         return 1
+    elif num_O >= 1 or num_H >=1:
+        return 0
 
 def add_class_labels(df, metadata):
     df['ads'] = np.array([metadata[id]['ads_symbols'].replace('*', '') for id in df['id']])

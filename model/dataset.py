@@ -3,15 +3,14 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-class MyDataset(torch.utils.data.Dataset):
+class FinetuneDataset(torch.utils.data.Dataset):
    
     def __init__(self, texts, targets, tokenizer, seq_len=500): 
         self.texts = texts
         self.targets = targets
         self.tokenizer = tokenizer
-        self.seq_len = seq_len # 400 was set as the default originally  
-        # self.mean = mean 
-        # self.std = std 
+        self.seq_len = seq_len 
+
         
     def __len__(self):
         """Returns the length of dataset."""
@@ -31,8 +30,6 @@ class MyDataset(torch.utils.data.Dataset):
             add_special_tokens = True,  # Whether to insert [CLS], [SEP], <s>, etc.   
             return_attention_mask = True            
         )     
-        # Normalization of target values
-        # target = (self.targets[idx] - self.mean) / self.std
 
         return {"ids": torch.tensor(tokenized["input_ids"], dtype=torch.long),
                 "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
@@ -49,6 +46,9 @@ class PretrainDataset(torch.utils.data.Dataset):
         self.bulk_class = bulk_class
         self.tokenizer = tokenizer
         self.seq_len = seq_len 
+        self.n_ads_size = 3 #max(ads_size) +1
+        self.n_ads_class = 5 #max(ads_class) + 1
+        self.n_bulk_class = 4 #max(bulk_class) + 1
         
     def __len__(self):
         """Returns the length of dataset."""
@@ -69,13 +69,12 @@ class PretrainDataset(torch.utils.data.Dataset):
             return_attention_mask = True            
         )     
 
-
         return {"ids": torch.tensor(tokenized["input_ids"], dtype=torch.long),
                 "masks": torch.tensor(tokenized["attention_mask"], dtype=torch.long),
                 "labels":{
-                          "ads_size": torch.tensor(self.ads_size[idx]),
-                          "ads_class": torch.tensor(self.ads_class[idx]),
-                          "bulk_class": torch.tensor(self.bulk_class[idx])
+                          "ads_size": torch.tensor(np.eye(self.n_ads_size)[self.ads_size[idx]]),
+                          "ads_class": torch.tensor(np.eye(self.n_ads_class)[self.ads_class[idx]]),
+                          "bulk_class": torch.tensor(np.eye(self.n_bulk_class)[self.bulk_class[idx]])
                 }
                }
 
