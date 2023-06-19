@@ -86,17 +86,17 @@ def add_class_labels(df, metadata):
     
 if __name__ == "__main__":
     # load data
-    df_train = pd.read_pickle("df_is2re_100k.pkl")
-    df_val = pd.read_pickle("df_is2re_val_25k.pkl")
-    metadata = pickle.load(open("../metadata/oc20_data_mapping.pkl", "rb"))
+    df_train = pd.read_pickle("df_is2re_100k_new.pkl")
+    df_val = pd.read_pickle("df_is2re_val_25k_new.pkl")
+    metadata = pickle.load(open("../metadata/oc20_meta/oc20_data_metadata.pkl", "rb"))
     # for debugging
-    df_train = df_train.iloc[:1000]
-    df_val = df_val.iloc[:1000]
+    # df_train = df_train.iloc[:1000]
+    # df_val = df_val.iloc[:1000]
     
     # add labels
     df_train = add_class_labels(df_train, metadata)
     df_val = add_class_labels(df_val, metadata)
 
     # save data
-    df_train.to_pickle("../data/df_train_w_class.pkl")
-    df_val.to_pickle("../data/df_val_w_class.pkl")
+    df_train.to_pickle("df_train.pkl")
+    df_val.to_pickle("df_val.pkl")
