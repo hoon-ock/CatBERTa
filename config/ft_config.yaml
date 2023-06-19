@@ -1,6 +1,6 @@
 params:
-  num_epochs: 1
-  batch_size: 4
+  num_epochs: 10
+  batch_size: 16
   lr: 5.0e-7
   early_stop_threshold: 3
   scheduler: constant # constant, linear
@@ -10,8 +10,8 @@ params:
   loss_fn: L2         # mae, rmse, L2
 
 paths:
-  train_data: "./data/df_is2re_100k.pkl"
-  val_data: "./data/df_is2re_val_25k.pkl"
+  train_data: "./data/df_train.pkl"
+  val_data: "./data/df_val.pkl"
   ft_config: "./config/ft_config.yaml"
-  pt_ckpt: "./checkpoint/pretrain/run_name"
+  pt_ckpt: "./checkpoint/pretrain/pt_0618_0343"
   tknz: "./tokenizer"

@@ -18,14 +18,15 @@ train_data_path = paths["train_data"]
 val_data_path = paths["val_data"] 
 pt_ckpt_path = paths["pt_ckpt"] 
 tknz_path = paths["tknz"]
+ckpt_for_further_train = './checkpoint/finetune/ft_0619_0223/checkpoint.pt'
 # ==========================================================
 
 # Load data
 df_train = pd.read_pickle(train_data_path)
 df_val = pd.read_pickle(val_data_path)
 # for debugging
-df_train = df_train.sample(500, random_state=42)
-df_val = df_val.sample(20, random_state=42)
+# df_train = df_train.sample(500, random_state=42)
+# df_val = df_val.sample(20, random_state=42)
 print("Training data size: " + str(df_train.shape[0]))
 print("Validation data size : " + str(df_val.shape[0]))
 
@@ -40,7 +41,7 @@ pt_ckpt = torch.load(os.path.join(pt_ckpt_path, 'checkpoint.pt'))
 backbone.load_state_dict(pt_ckpt, strict=False)
 model = backbone_wrapper(backbone, params['model_head'])
 # if start training from pretrained header
-# model = model.load_state_dict(torch.load(ckpt_path2)) #torch.load(ckpt_path)
+model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 
 # Load pre-trained tokenizer
 max_len = backbone.embeddings.position_embeddings.num_embeddings
@@ -61,6 +62,5 @@ run_name = 'ft'+datetime.now().strftime("_%m%d_%H%M")
 run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name= run_name)
 
 # save config files for reference
-import pdb;pdb.set_trace()
-shutil.copy(ft_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "pt_config.yaml"))
-shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(f"./checkpoint/pretrain/{run_name}", "roberta_config.yaml"))
+shutil.copy(ft_config_path, os.path.join(f"./checkpoint/finetune/{run_name}", "pt_config.yaml"))
+shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(f"./checkpoint/finetune/{run_name}", "roberta_config.yaml"))

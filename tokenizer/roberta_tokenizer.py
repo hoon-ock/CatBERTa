@@ -13,7 +13,7 @@ home_path = os.path.dirname(os.path.dirname(file_path))
 # paths = [str(x) for x in Path('../data/train').glob('random*.txt')]
 
 # Collect training text from dataframe
-df = pd.read_pickle('../data/df_is2re_100k.pkl')
+df = pd.read_pickle('../data/df_train.pkl')
 texts = df['text'].values.tolist()
 print('Number of training texts: ', len(texts))
 

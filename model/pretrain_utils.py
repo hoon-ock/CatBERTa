@@ -16,6 +16,16 @@ import datetime
 #     losses += loss_fn(outputs[key], pictures['labels'][f'{key}'].to(device))
 #   return losses
 
+def class_acc(n_correct,n_samples,n_class_correct,n_class_samples,class_list):
+    for i in range(len(class_list)):
+      print("-------------------------------------------------")
+      acc = 100.0 * n_correct[i] / n_samples
+      print(f'Overall class performance: {round(acc,1)} %')
+      for k in range(len(class_list[i])):
+          acc = 100.0 * n_class_correct[i][k] / n_class_samples[i][k]
+          print(f'Accuracy of {class_list[i][k]}: {round(acc,1)} %')
+    print("-------------------------------------------------")
+
 
 def train_fn(data_loader, model, optimizer, device, scheduler):
     model.train()
@@ -41,22 +51,39 @@ def train_fn(data_loader, model, optimizer, device, scheduler):
         scheduler.step()
     return np.mean(train_losses), np.mean(lr_list)
 
-def validate_fn(data_loader, model, device):
+def validate_fn(data_loader, model, device, n_class_type=3):
     model.eval()
     val_losses = []
+    val_overall_acc = []
+    val_class_acc = []
     print('validating...')
     with torch.no_grad():
+        n_correct = torch.zeros(n_class_type) #[]
+        n_samples = 0 
         for batch in tqdm(data_loader):
             ids = batch["ids"].to(device, dtype=torch.long)
             masks = batch["masks"].to(device, dtype=torch.long)
             labels = batch["labels"] #.to(device, dtype=torch.float)
             outputs = model(ids, masks)
             loss = 0
-  
-            for key in outputs:
-               loss += nn.CrossEntropyLoss()(outputs[key], labels[f'{key}'].to(device))
+            
+            for i, key in enumerate(outputs):
+                loss += nn.CrossEntropyLoss()(outputs[key], labels[f'{key}'].to(device))
+                _, predicted = torch.max(outputs[key], 1)
+                label_logit = labels[key].argmax(dim=1)
+                n_correct[i] += (predicted == label_logit).sum().item() 
+                
+                if i == 0:
+                    n_samples += labels[key].size(0)
+                  
+            accuracy = n_correct/n_samples
             val_losses.append(loss.item())
-    return np.mean(val_losses)
+            val_overall_acc.append(torch.mean(accuracy).item())
+            val_class_acc.append(accuracy.tolist())
+    
+    class_acc = dict(zip(labels.keys(), np.mean(val_class_acc, axis=0)))
+    # import pdb; pdb.set_trace()
+    return np.mean(val_losses), np.mean(val_overall_acc), class_acc
 
 
 def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name):
@@ -67,7 +94,7 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
     LR = params["lr"] if params.get("lr") else 1e-6 # Learning rate
     WRMUP = params["warmup_steps"] if params.get("warmup_steps") else 0
     SCHD = params["scheduler"] if params.get("scheduler") else "linear" # scheduler type
-    HEAD = params["model_head"] if params.get("model_head") else "multilabel"
+    #HEAD = params["model_head"] if params.get("model_head") else "multilabel"
 
     print("=============================================================")
     print(f"{run_name} is launched")
@@ -123,10 +150,12 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
         # Call the train function and get the training loss
         train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler)
         # Perform validation and get the validation loss
-        val_loss = validate_fn(val_data_loader, model, device)
+        val_loss, val_acc, val_class_acc = validate_fn(val_data_loader, model, device)
 
         loss = val_loss
-        wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'lr': lr})
+        report_dict = {'train_loss': train_loss, 'val_loss': val_loss, 'val_acc': val_acc, 'lr': lr}
+        report_dict.update(val_class_acc)
+        wandb.log(report_dict)
         # If there's improvement on the validation loss, save the model checkpoint.
         # Else do early stopping if threshold is reached.
         if loss < best_loss:            
@@ -134,11 +163,11 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
             if not os.path.exists(save_ckpt_path):
                 os.makedirs(save_ckpt_path)
             torch.save(model.state_dict(), os.path.join(save_ckpt_path, 'checkpoint.pt'))
-            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, checkpoint saved.")
+            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val Acc = {round(val_acc,3)}, checkpoint saved.")
             best_loss = loss
             early_stopping_counter = 0
         else:
-            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}")
+            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val Acc = {round(val_acc,3)}")
             early_stopping_counter += 1
         if early_stopping_counter > EARLY_STOP_THRESHOLD:
             print(f"Early stopping triggered at epoch {epoch}! Best Loss: {round(best_loss,3)}\n")                
