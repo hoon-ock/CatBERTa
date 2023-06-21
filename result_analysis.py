@@ -2,7 +2,7 @@ import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 import glob
-from figure.plots import parity_plot, get_array_for_grouping, grouping_fast
+from analysis.plots import parity_plot, get_array_for_grouping, grouping_fast
 import os
 
 class SplitAnalysis():

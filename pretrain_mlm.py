@@ -6,10 +6,9 @@ from torch.utils.data import Dataset, DataLoader
 # from transformers import AdamW
 from tqdm import tqdm 
 import wandb
-import datetime
+from datetime import datetime
 import pandas as pd
-import os
-import json
+import os, yaml, shutil
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -22,25 +21,6 @@ def mlm(tensor, mask_token_id=4):
         tensor[i, selection] = mask_token_id #tokenizer.mask_token_id
     return tensor 
 
-# convert files to input tensors
-# def get_encodings(paths):
-#     input_ids = []
-#     mask = []
-#     labels = []
-#     for path in tqdm(paths):
-#         with open(path, 'r', encoding='utf-8') as f:
-#             text = f.read()
-#         sample = tokenizer(text, max_length=512, padding='max_length', 
-#                            truncation=True, return_tensors='pt')
-#         labels.append(sample['input_ids'])
-#         mask.append(sample['attention_mask'])
-#         input_ids.append(mlm(sample['input_ids'].clone()))
-#     input_ids = torch.cat(input_ids)
-#     mask = torch.cat(mask)
-#     labels = torch.cat(labels)
-#     return {'input_ids': input_ids, 
-#             'attention_mask': mask, 
-#             'labels': labels}
 
 # convert text to input tensors
 def get_encodings_from_texts(texts, tokenizer):
@@ -108,7 +88,7 @@ class RobertaDataset(Dataset):
         return len(self.encodings['input_ids'])
 
 
-def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_path):
+def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name):
     num_epochs = params["num_epochs"]
     batch_size = params["batch_size"]
     lr = params["lr"]
@@ -116,9 +96,8 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
     # ===============================================
     # Set run name and initialize wandb
     # ===============================================
-    now = datetime.datetime.now().strftime('%m%d_%H%M')
-    run_name = f'len{tokenizer.model_max_length}_ep{num_epochs}_bs{batch_size}_{now}'
-    wandb.init(project="catbert-pt", name=run_name, dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
+    wandb.init(project="catbert-pt", name=run_name, dir='./log')
+    #'/home/jovyan/shared-scratch/jhoon/CATBERT/log')
     print("===============================================")
     print(f"Run name: {run_name}")
     print("===============================================")
@@ -152,11 +131,13 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
         if loss < best_loss:
             best_loss = loss
             early_stopping_counter = 0
-            #torch.save(model.state_dict(), f'./checkpoint/pretrain/{run_name}.pt')
-            full_save_path = os.path.join(save_path, run_name)
-            if not os.path.exists(full_save_path):
-                os.makedirs(full_save_path)
-            model.save_pretrained(full_save_path)
+    
+
+            save_ckpt_path = os.path.join("./checkpoint/pretrain/", run_name)
+            if not os.path.exists(save_ckpt_path):
+                os.makedirs(save_ckpt_path)
+            # model.save_pretrained(full_save_path)
+            torch.save(model.state_dict(), os.path.join(save_ckpt_path, 'checkpoint.pt'))
             print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, checkpoint saved.")
         else:
             early_stopping_counter += 1
@@ -172,44 +153,53 @@ def run_pretraining(df_train, df_val, tokenizer, model, device, params, save_pat
 
 
 if __name__ == '__main__':
-    # ==========================================================
-    # Set up paths for data, model, tokenizer, and results
-    # ==========================================================
-    train_data_path = "./data/df_is2re_100k.pkl"
-    val_data_path = "./data/df_is2re_val_25k.pkl"
-    config_path = "./config/roberta_config.json"
-    tknz_path = "./tokenizer"
-    # ==========================================================
-    # Load config and hyperparameters
-    with open(config_path, "r") as f:
-        loaded_dict = json.load(f)
-    
-    
-    # Hyperparameters for training
-    params = loaded_dict['pretrain_params']
+    import argparse 
+    parser = argparse.ArgumentParser(description='Set the running mode')
+    parser.add_argument('--debug', action='store_true', help='Enable debugging mode')
+    parser.add_argument('--base', action='store_true', help='Pretrain with base model') 
+    args = parser.parse_args()
+    if args.debug:
+        print('Debugging mode enabled!')
+    if args.base:
+        print('Pretraining with base model!')
+
+    # ============== 0. Read pretrain config file ======================
+    pt_config_path = "./config/pt_config.yaml"
+    paths = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['paths']
+    train_data_path = paths["train_data"]
+    val_data_path = paths["val_data"]
+    rbt_config_path = paths["roberta_config"]
+    tknz_path = paths["tknz"]
+    model_config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader)   
+    params = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['params']
    
-    # Load training/validation data w/o stratified kfold
-    df_train = pd.read_pickle(train_data_path)
-    df_val = pd.read_pickle(train_data_path)
-    # Load training data w/ stratified kfold
-    # df = pd.read_pickle(train_data_path)
-    # df = df.iloc[:10000] # for code testing
-    # df = stratified_kfold(df, n_splits=5)
-    # df_train = df[df['skfold']!=0]
-    # df_val = df[df['skfold']==0]
+    # ================= 1. Load data ======================
+    df_train = pd.read_pickle(train_data_path).sample(1, random_state=42)
+    df_val = pd.read_pickle(train_data_path).sample(1, random_state=42)
+    if args.debug:
+        df_train = df_train.sample(1, random_state=42)
+        df_val = df_val.sample(2, random_state=42)
+    print("Training data size: " + str(df_train.shape[0]))
+    print("Validation data size : " + str(df_val.shape[0]))
 
-    # Load model
-    config = RobertaConfig.from_dict(loaded_dict["roberta_config"])
-    model = RobertaForMaskedLM(config)
+    # ================= 2. Load model ======================
+    if args.base:
+        model = RobertaForMaskedLM.from_pretrained('roberta-base')
+        #max_len = model.roberta.embeddings.position_embeddings.num_embeddings
+    else:
+        roberta_config = RobertaConfig.from_dict(model_config)
+        model = RobertaForMaskedLM(roberta_config)
         
-    # Load pre-trained tokenizer
-    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, 
-                                                     max_len=config.max_position_embeddings) #orginally set as 514
-
     
-    # Set device    
+    # ================= 3. Load tokenizer ======================
+    max_len = model.roberta.embeddings.position_embeddings.num_embeddings
+    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+    
+    # ================= 4. Set device ======================   
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    #device = torch.device('cpu')
+    device = torch.device('cpu')
+    if args.debug:
+        device = torch.device('cpu')
     print('Device:', device)
     if device.type == 'cuda':
         print(torch.cuda.get_device_name(0))
@@ -217,9 +207,20 @@ if __name__ == '__main__':
         print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
         print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
     
-    # run pretraining
-    run_pretraining(df_train, df_val, 
-                    tokenizer, model, 
-                    device, params,
-                    save_path="./checkpoint/pretrain/")
+    # ================= 5. Run pretraining ======================
+    run_name = 'mlm-pt'+datetime.now().strftime("_%m%d_%H%M")
 
+    if args.debug:
+        run_name = 'debug'+datetime.now().strftime("_%m%d_%H%M")
+    if args.base:
+        run_name = 'base-'+run_name
+    print("Run name: ", run_name)
+
+    run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name)
+
+    # save config files for reference
+    shutil.copy(pt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "pt_config.yaml"))
+    if not args.base:
+        shutil.copy(rbt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "roberta_config.yaml"))
+    
+    # import pdb; pdb.set_trace()
