@@ -1,7 +1,7 @@
 params:
   num_epochs: 10
   batch_size: 16
-  lr: 1.0e-6
+  lr: 5.0e-7
   early_stop_threshold: 3
   scheduler: constant       # constant, linear
   warmup_steps: 0

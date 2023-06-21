@@ -3,11 +3,11 @@ params:
   batch_size: 16
   lr: 5.0e-7
   early_stop_threshold: 3
-  scheduler: constant # constant, linear
+  scheduler: linear # constant, linear
   warmup_steps: 0
-  optimizer: AdamW    # AdamW, gLLRD
+  optimizer: gLLRD    # AdamW, gLLRD
   model_head: mlp     # pooler, mlp, mlp2, attnhead, concatlayer
-  loss_fn: L2         # mae, rmse, L2
+  loss_fn: rmse         # mae, rmse, L2
 
 paths:
   train_data: "./data/df_train.pkl"

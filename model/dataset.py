@@ -5,7 +5,7 @@ from sklearn.model_selection import StratifiedKFold
 
 class FinetuneDataset(torch.utils.data.Dataset):
    
-    def __init__(self, texts, targets, tokenizer, seq_len=500): 
+    def __init__(self, texts, targets, tokenizer, seq_len=512): 
         self.texts = texts
         self.targets = targets
         self.tokenizer = tokenizer

@@ -30,6 +30,16 @@ def backbone_wrapper(backbone, head_type):
     
     return model
 
+def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
+    model_dict = model.state_dict()
+    state_dict = torch.load(checkpoint_path)
+    if load_on_roberta:
+        matching_state_dict = {k.replace('roberta_model.', ''): v for k, v in state_dict.items() if k.replace('roberta_model.', '') in model_dict}
+    else:
+        matching_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+    model.load_state_dict(matching_state_dict, strict=False)
+    return model
+
 # def save_config_file(original_file_path, copy_folder, copy_file_name):
 #     if not os.path.exists(copy_folder):
 #         os.makedirs(copy_folder)

@@ -21,13 +21,13 @@ train_data_path = paths["train_data"]
 val_data_path = paths["val_data"]
 rbt_config_path = paths["roberta_config"]
 tknz_path = paths["tknz"]
-ckpt_for_further_train = './checkpoint/pretrain/pt_0618_0343/checkpoint.pt'
+ckpt_for_further_train = './checkpoint/pretrain/pt_0620_1427/checkpoint.pt'
 # ==========================================================
 if args.debug:
     print('Debugging mode enabled!')
 # Load data
-df_train = pd.read_pickle(train_data_path)
-df_val = pd.read_pickle(val_data_path)
+df_train = pd.read_pickle(train_data_path) #.sample(100, random_state=42)
+df_val = pd.read_pickle(val_data_path) #.sample(100, random_state=42)
 # for debugging
 if args.debug:
     df_train = df_train.sample(1, random_state=42)
@@ -44,6 +44,7 @@ roberta_config = RobertaConfig.from_dict(config)
 backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
 
 model = backbone_wrapper(backbone, params['model_head'])
+#import pdb; pdb.set_trace()
 # if start training from pretrained header
 model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 # Load pre-trained tokenizer
@@ -56,13 +57,13 @@ if args.debug:
     device = torch.device("cpu") # for debugging
 if device.type == 'cuda':
     print(torch.cuda.get_device_name(0))
+    torch.cuda.empty_cache()
     print('Memory Usage:')
     print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
     print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
-    print('empty cache!')
-    torch.cuda.empty_cache()
+    
 # run training
-run_name = 'pt'+datetime.now().strftime("_%m%d_%H%M")
+run_name = 'pt'+datetime.now().strftime("_%m%d_%H%M")+'_on_0620_1427'
 if args.debug:
     run_name = "debugging"
 run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name=run_name)

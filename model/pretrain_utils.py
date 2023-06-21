@@ -42,7 +42,7 @@ def train_fn(data_loader, model, optimizer, device, scheduler):
         # compute loss
         loss = 0
         for key in outputs:
-           loss += nn.CrossEntropyLoss()(outputs[key], labels[f'{key}'].to(device))
+           loss += nn.CrossEntropyLoss()(outputs[key], labels[key].to(device))
         train_losses.append(loss.item())
 
         loss.backward()
@@ -56,10 +56,10 @@ def validate_fn(data_loader, model, device, n_class_type=3):
     val_losses = []
     val_overall_acc = []
     val_class_acc = []
+    n_correct = torch.zeros(n_class_type) #[]
+    n_samples = 0
     print('validating...')
     with torch.no_grad():
-        n_correct = torch.zeros(n_class_type) #[]
-        n_samples = 0 
         for batch in tqdm(data_loader):
             ids = batch["ids"].to(device, dtype=torch.long)
             masks = batch["masks"].to(device, dtype=torch.long)
@@ -68,22 +68,22 @@ def validate_fn(data_loader, model, device, n_class_type=3):
             loss = 0
             
             for i, key in enumerate(outputs):
-                loss += nn.CrossEntropyLoss()(outputs[key], labels[f'{key}'].to(device))
+                loss += nn.CrossEntropyLoss()(outputs[key], labels[key].to(device))
                 _, predicted = torch.max(outputs[key], 1)
-                label_logit = labels[key].argmax(dim=1)
+                label_logit = labels[key].argmax(dim=1).to(device)
+                # import pdb; pdb.set_trace()
                 n_correct[i] += (predicted == label_logit).sum().item() 
                 
                 if i == 0:
                     n_samples += labels[key].size(0)
                   
-            accuracy = n_correct/n_samples
+            
             val_losses.append(loss.item())
-            val_overall_acc.append(torch.mean(accuracy).item())
-            val_class_acc.append(accuracy.tolist())
+        accuracy = n_correct/n_samples
+        val_overall_acc = torch.mean(accuracy).item()
+        val_class_acc = dict(zip(labels.keys(), accuracy.tolist()))
     
-    class_acc = dict(zip(labels.keys(), np.mean(val_class_acc, axis=0)))
-    # import pdb; pdb.set_trace()
-    return np.mean(val_losses), np.mean(val_overall_acc), class_acc
+    return np.mean(val_losses), val_overall_acc, val_class_acc
 
 
 def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name):
