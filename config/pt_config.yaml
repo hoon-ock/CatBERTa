@@ -1,5 +1,5 @@
 params:
-  num_epochs: 10
+  num_epochs: 50
   batch_size: 16
   lr: 5.0e-7
   early_stop_threshold: 3

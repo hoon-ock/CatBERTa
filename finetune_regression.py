@@ -62,5 +62,5 @@ run_name = 'ft'+datetime.now().strftime("_%m%d_%H%M")
 run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name= run_name)
 
 # save config files for reference
-shutil.copy(ft_config_path, os.path.join(f"./checkpoint/finetune/{run_name}", "pt_config.yaml"))
+shutil.copy(ft_config_path, os.path.join(f"./checkpoint/finetune/{run_name}", "ft_config.yaml"))
 shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(f"./checkpoint/finetune/{run_name}", "roberta_config.yaml"))

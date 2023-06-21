@@ -7,7 +7,7 @@ params:
   warmup_steps: 0
   optimizer: gLLRD    # AdamW, gLLRD
   model_head: mlp     # pooler, mlp, mlp2, attnhead, concatlayer
-  loss_fn: rmse         # mae, rmse, L2
+  loss_fn: rmse       # mae, rmse, L2
 
 paths:
   train_data: "./data/df_train.pkl"

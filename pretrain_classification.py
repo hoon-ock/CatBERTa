@@ -37,16 +37,15 @@ print("Validation data size : " + str(df_val.shape[0]))
 
 # Set hyperparameters
 params = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['params']
-config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader)['roberta_config']
-roberta_config = RobertaConfig.from_dict(config)
+model_config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader) #['roberta_config']
+roberta_config = RobertaConfig.from_dict(model_config)
 
 # Load pre-trained backbone model
 backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-
 model = backbone_wrapper(backbone, params['model_head'])
-#import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 # if start training from pretrained header
-model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
+# model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 # Load pre-trained tokenizer
 max_len = backbone.embeddings.position_embeddings.num_embeddings
 tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
@@ -63,7 +62,7 @@ if device.type == 'cuda':
     print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
     
 # run training
-run_name = 'pt'+datetime.now().strftime("_%m%d_%H%M")+'_on_0620_1427'
+run_name = 'pt'+datetime.now().strftime("_%m%d_%H%M") #+'_on_0620_1427'
 if args.debug:
     run_name = "debugging"
 run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name=run_name)
