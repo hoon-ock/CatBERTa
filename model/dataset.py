@@ -39,7 +39,7 @@ class FinetuneDataset(torch.utils.data.Dataset):
 
 class PretrainDataset(torch.utils.data.Dataset):
    
-    def __init__(self, texts, ads_size, ads_class, bulk_class, tokenizer, seq_len=500): 
+    def __init__(self, texts, ads_size, ads_class, bulk_class, tokenizer, seq_len=512): 
         self.texts = texts
         self.ads_size = ads_size
         self.ads_class = ads_class

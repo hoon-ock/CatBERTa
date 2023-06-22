@@ -174,8 +174,8 @@ if __name__ == '__main__':
     params = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['params']
    
     # ================= 1. Load data ======================
-    df_train = pd.read_pickle(train_data_path).sample(1, random_state=42)
-    df_val = pd.read_pickle(train_data_path).sample(1, random_state=42)
+    df_train = pd.read_pickle(train_data_path) #.sample(1, random_state=42)
+    df_val = pd.read_pickle(val_data_path) #.sample(1, random_state=42)
     if args.debug:
         df_train = df_train.sample(1, random_state=42)
         df_val = df_val.sample(2, random_state=42)
@@ -197,30 +197,32 @@ if __name__ == '__main__':
     
     # ================= 4. Set device ======================   
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    device = torch.device('cpu')
+    #device = torch.device('cpu')
     if args.debug:
         device = torch.device('cpu')
     print('Device:', device)
     if device.type == 'cuda':
         print(torch.cuda.get_device_name(0))
+        torch.cuda.empty_cache()
         print('Memory Usage:')
         print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3,1), 'GB')
         print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
     
     # ================= 5. Run pretraining ======================
     run_name = 'mlm-pt'+datetime.now().strftime("_%m%d_%H%M")
-
     if args.debug:
         run_name = 'debug'+datetime.now().strftime("_%m%d_%H%M")
     if args.base:
         run_name = 'base-'+run_name
     print("Run name: ", run_name)
 
-    run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name)
-
+    save_dir = os.path.join(f"./checkpoint/pretrain/{run_name}")
+    if os.path.exists(save_dir):
+        os.makedirs(save_dir)
     # save config files for reference
-    shutil.copy(pt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "pt_config.yaml"))
+    shutil.copy(pt_config_path, os.path.join(save_dir, "pt_config.yaml"))
     if not args.base:
-        shutil.copy(rbt_config_path, os.path.join(f"./checkpoint/pretrain/{run_name}", "roberta_config.yaml"))
-    
-    # import pdb; pdb.set_trace()
+        shutil.copy(rbt_config_path, os.path.join(save_dir, "roberta_config.yaml"))
+
+    # run pretraining
+    run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name)
