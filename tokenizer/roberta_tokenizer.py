@@ -2,6 +2,7 @@ from pathlib import Path
 from tokenizers import ByteLevelBPETokenizer
 # from tokenizers.trainers import BpeTrainer
 # from tokenizers.pre_tokenizers import Whitespace
+# from tokenizers import Tokenizer, models, pre_tokenizers, decoders, trainers
 import os
 import pandas as pd
 
@@ -21,11 +22,10 @@ print('Number of training texts: ', len(texts))
 # Initialize tokenizer
 tokenizer = ByteLevelBPETokenizer()
 # tokenizer.pre_tokenizer = Whitespace()
-tokenizer.train_from_iterator(texts)
-tokenizer.add_special_tokens(["<s>", "<pad>", "</s>", "<unk>", "<mask>"])
+# tokenizer.add_special_tokens(["<s>", "<pad>", "</s>", "<unk>", "<mask>"])
+tokenizer.train_from_iterator(texts, special_tokens=["<s>","<pad>","</s>","<unk>","<mask>"])
 # tokenizer.train(files=paths, min_frequency=2, 
 #                 special_tokens=['<s>', '<pad>', '</s>', '<unk>', '<mask>'])
-
 
 # Save tokenizer
 #tokenizer.save('roberta_tokenizer.json')
