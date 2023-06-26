@@ -15,13 +15,13 @@ args = parser.parse_args()
 if args.debug:
     print('Debugging mode enabled!')
 # ============== 0. Read pretrain config file ======================
-pt_config_path = "./config/pt_config.yaml"
+pt_config_path = "config/pt_config.yaml"
 paths = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['paths']
 train_data_path = paths["train_data"]
 val_data_path = paths["val_data"]
 rbt_config_path = paths["roberta_config"]
 tknz_path = paths["tknz"]
-ckpt_for_further_train = './checkpoint/pretrain/pt_0620_1427/checkpoint.pt'
+# ckpt_for_further_train = 'checkpoint/pretrain/pt_0620_1427/checkpoint.pt'
 
 # ================= 1. Load data ======================
 df_train = pd.read_pickle(train_data_path) #.sample(100, random_state=42)
@@ -44,9 +44,9 @@ model = backbone_wrapper(backbone, params['model_head'])
 # model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 
 # ================= 3. Load tokenizer ======================
-max_len = backbone.embeddings.position_embeddings.num_embeddings
+max_len = backbone.embeddings.position_embeddings.num_embeddings-2
 tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
-
+print("Max length: ", tokenizer.model_max_length)
 # ================= 4. Set device ======================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if args.debug:
@@ -65,7 +65,7 @@ if args.debug:
 print("Run name: ", run_name)
 
 save_dir = os.path.join(f"./checkpoint/pretrain/{run_name}")
-if os.path.exists(save_dir):
+if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 # save config files for reference
 shutil.copy(pt_config_path, os.path.join(save_dir, "pt_config.yaml"))

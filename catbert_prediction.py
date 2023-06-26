@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import os, yaml, pickle
 
 
-def ft_predict_fn(df, model, tokenizer, device, emb_mode=False):  
+def predict_fn(df, model, tokenizer, device, mode='energy'):  
     '''
     df: input dataframe with columns "text" and "target" (and "class lables")
     model: model to predict
@@ -19,7 +19,7 @@ def ft_predict_fn(df, model, tokenizer, device, emb_mode=False):
     dataset = FinetuneDataset(texts = df["text"].values,
                               targets = df["target"].values,
                               tokenizer = tokenizer,
-                              seq_len= tokenizer.model_max_length-2)
+                              seq_len= tokenizer.model_max_length)
     
     data_loader = DataLoader(dataset, batch_size=16,
                             shuffle=False, num_workers=2)
@@ -34,81 +34,113 @@ def ft_predict_fn(df, model, tokenizer, device, emb_mode=False):
             ids = batch["ids"].to(device, dtype=torch.long)
             masks = batch["masks"].to(device, dtype=torch.long)
             targets = batch["target"].to(device, dtype=torch.float)
-            if not emb_mode:
+            if mode == 'energy':
                 # energy prediction
-                outputs = model(ids, masks).squeeze(-1) 
-            else:
+                outputs = model(ids, masks).squeeze(-1)
+            elif mode == 'embed':
                 # embedding generation
                 outputs = model(ids, masks)['pooler_output']
-            #import pdb; pdb.set_trace()
-            outputs = outputs.detach().cpu().numpy()
-            predictions.extend(outputs.tolist())
+            elif mode == 'attn':
+                # attention generation
+                outputs = model(ids, masks, output_attentions=True)['attentions'][0]
+                return outputs
+            else:
+                raise ValueError('Mode not supported!')
+            outputs = outputs.detach().cpu().numpy().tolist()
+            predictions.extend(outputs)
 
     return predictions
 
 
 if __name__ == '__main__':
+    # ========================== INPUT ============================
+    ckpt_dir = "checkpoint/pretrain/pt_0625_2026"
+    ckpt_name = ckpt_dir.split('/')[-1]
+    # =============================================================
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
-    parser.add_argument('--emb', action='store_true', help='Embedding generation mode')
+    parser.add_argument('--target', choices=['energy', 'embed', 'attn'], default='energy',
+                    help='Prediction target (default: energy)')
+    parser.add_argument('--base', action='store_true', help='Pretrain with base model') 
     args = parser.parse_args()
-    pred = 'energy'
-    if args.emb:
-        # embedding generation mode
-        pred = 'embed'
-        print('--------------- Embedding generation mode! ---------------')
-    else:
+    pred = args.target
+    if pred == 'energy':
         print('--------------- Energy prediction mode! ---------------')
-    
+    elif pred == 'embed':
+        print('--------------- Embedding generation mode! ---------------')
+    elif pred == 'attn':
+        print('--------------- Attention generation mode! ---------------')
+        # raise warning message 
+        print('Warning: This mode is not fully tested yet!')
     # ================== 0. Load Checkpoint and Configs ==================
-    ckpt_dir = "/home/jovyan/CATBERT/checkpoint/pretrain/pt_0621_0442"
-    # Load Training Config
-    if 'pretrain' in ckpt_dir:
-        train_config = os.path.join(ckpt_dir, "pt_config.yaml")
-        pred = 'pt_' + pred
-    elif 'finetune' in ckpt_dir:
-        train_config = os.path.join(ckpt_dir, "ft_config.yaml")
-        pred = 'ft_' + pred
-    paths = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['paths']
-    val_data_path = paths["val_data"]
-    tknz_path = paths["tknz"]
-    head = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['params']['model_head']
-    # Load Model Config
-    model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-    roberta_config = RobertaConfig.from_dict(model_config)
-    # Load Checkpoint
-    checkpoint = os.path.join(ckpt_dir, "checkpoint.pt")
+    if args.base:
+        tag = 'base'
+        val_data_path = "data/df_val.pkl"
+    # "/home/jovyan/CATBERT/checkpoint/pretrain/pt_0621_0442"
+        if pred == 'energy':
+            raise ValueError('Cannot predict energy with base model!')
+    
+    else:
+        tag = ckpt_name
+        # Load Training Config
+        if 'pt' in ckpt_name:
+            print('This is a pretraining checkpoint!')
+            if pred == 'energy':
+                raise ValueError('Cannot predict energy with base model!')
+            train_config = os.path.join(ckpt_dir, "pt_config.yaml")
+
+        elif 'ft' in ckpt_name:
+            train_config = os.path.join(ckpt_dir, "ft_config.yaml")
+
+        paths = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['paths']
+        val_data_path = paths["val_data"]
+        tknz_path = paths["tknz"]
+        head = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['params']['model_head']
+        # Load Model Config
+        model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
+        roberta_config = RobertaConfig.from_dict(model_config)
+        # Load Checkpoint
+        checkpoint = os.path.join(ckpt_dir, "checkpoint.pt")
     # Set Device 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu") # for debugging
+
     # ================== 1. Load Model and Tokenizer ==================
-    backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-    model = backbone_wrapper(backbone, head)
-    model.load_state_dict(torch.load(checkpoint))
-    max_len = model.roberta_model.embeddings.position_embeddings.num_embeddings
-
-    if args.emb:
-        # To generate embeddings, we need to load the model without the head.
-        # So, we need to load the model from the checkpoint only on the backbone.
-        model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
-        max_len = model.embeddings.position_embeddings.num_embeddings
-
-    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)                                
+    if args.base:
+        backbone = RobertaModel.from_pretrained('roberta-base')
+        max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', max_len=max_len)
+        model = backbone
+    else:
+        backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+        max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+        model = backbone_wrapper(backbone, head)
+        # model.load_state_dict(torch.load(checkpoint))
+        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+        if pred == 'energy':
+            # To generate energy, we need to load the model with the head.
+            # So, we need to load the model from the checkpoint on the whole model.
+            model = checkpoint_loader(model, checkpoint, load_on_roberta=False)
+        elif pred == 'embed' or pred == 'attn':
+            # To generate embeddings/attention, we need to load the model without the head.
+            # So, we need to load the model from the checkpoint only on the backbone.
+            model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
+                                    
     # ================== 2. Load Data ==================                               
     df_val = pd.read_pickle(val_data_path)
-    df_val = df_val.sample(500, random_state=42) # for debugging
+    df_val = df_val.sample(500, random_state=17) # for debugging
     # ================== 3. Obtain Predictions ==================
-    predictions = ft_predict_fn(df_val, model, tokenizer, device, emb_mode=args.emb)
+    predictions = predict_fn(df_val, model, tokenizer, device, mode=pred)
     
     # save predictions as dictionary with id as key
     results = {}
     for i in range(len(df_val)):
         results[df_val.iloc[i]['id']] = predictions[i]
     
-    save_dir = "/home/jovyan/CATBERT/results/catbert"
+    save_dir = f"/home/jovyan/CATBERT/results/{pred}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    save_path = os.path.join(save_dir, f"catbert_{pred}_{ckpt_dir.split('/')[-1]}.pkl")
+    save_path = os.path.join(save_dir, f"catbert_{pred}_{tag}.pkl")
     with open(save_path, "wb") as f:
         pickle.dump(results, f)   

@@ -145,12 +145,12 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     train_dataset = FinetuneDataset(texts = df_train["text"].values,
                               targets = df_train["target"].values,
                               tokenizer = tokenizer,
-                              seq_len= tokenizer.model_max_length-2)
+                              seq_len= tokenizer.model_max_length)
     # Initialize validation dataset
     val_dataset = FinetuneDataset(texts = df_val["text"].values,
                             targets = df_val["target"].values,
                             tokenizer = tokenizer,
-                            seq_len= tokenizer.model_max_length-2)
+                            seq_len= tokenizer.model_max_length)
     # Create training dataloader
     train_data_loader = DataLoader(train_dataset, batch_size = TRAIN_BS,
                                    shuffle = True, num_workers = 2)

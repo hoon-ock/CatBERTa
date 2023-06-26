@@ -13,7 +13,7 @@ import os, yaml, shutil
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # mask language modeling
-def mlm(tensor, mask_token_id=4):
+def mlm(tensor, mask_token_id):
     rand = torch.rand(tensor.shape) #[0,1]
     mask_arr = (rand < 0.15) * (tensor > 2)
     for i in range(tensor.shape[0]):
@@ -30,11 +30,12 @@ def get_encodings_from_texts(texts, tokenizer):
     max_len = tokenizer.model_max_length
     for text in tqdm(texts):
         # substract 2 for <s> and </s> from max_lens
-        sample = tokenizer(text, max_length= max_len-2, padding='max_length', 
+        # breakpoint()
+        sample = tokenizer(text, max_length= max_len, padding='max_length', 
                            truncation=True, return_tensors='pt')
         labels.append(sample['input_ids'])
         mask.append(sample['attention_mask'])
-        input_ids.append(mlm(sample['input_ids'].clone()))
+        input_ids.append(mlm(sample['input_ids'].clone(), tokenizer.mask_token_id))
     input_ids = torch.cat(input_ids)
     mask = torch.cat(mask)
     labels = torch.cat(labels)
@@ -96,7 +97,7 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
     # ===============================================
     # Set run name and initialize wandb
     # ===============================================
-    wandb.init(project="catbert-pt", name=run_name, dir='./log')
+    wandb.init(project="catbert-pt", name=run_name, dir='log')
     #'/home/jovyan/shared-scratch/jhoon/CATBERT/log')
     print("===============================================")
     print(f"Run name: {run_name}")
@@ -131,8 +132,6 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
         if loss < best_loss:
             best_loss = loss
             early_stopping_counter = 0
-    
-
             save_ckpt_path = os.path.join("./checkpoint/pretrain/", run_name)
             if not os.path.exists(save_ckpt_path):
                 os.makedirs(save_ckpt_path)
@@ -156,7 +155,6 @@ if __name__ == '__main__':
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
     parser.add_argument('--debug', action='store_true', help='Enable debugging mode')
-    parser.add_argument('--base', action='store_true', help='Pretrain with base model') 
     args = parser.parse_args()
     if args.debug:
         print('Debugging mode enabled!')
@@ -192,9 +190,9 @@ if __name__ == '__main__':
         
     
     # ================= 3. Load tokenizer ======================
-    max_len = model.roberta.embeddings.position_embeddings.num_embeddings
+    max_len = model.roberta.embeddings.position_embeddings.num_embeddings-2
+    print('Max length:', max_len)
     tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
-    
     # ================= 4. Set device ======================   
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     #device = torch.device('cpu')
@@ -217,7 +215,7 @@ if __name__ == '__main__':
     print("Run name: ", run_name)
 
     save_dir = os.path.join(f"./checkpoint/pretrain/{run_name}")
-    if os.path.exists(save_dir):
+    if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     # save config files for reference
     shutil.copy(pt_config_path, os.path.join(save_dir, "pt_config.yaml"))

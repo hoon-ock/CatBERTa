@@ -112,14 +112,14 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
                                     ads_class = df_train["ads_class"].values,
                                     bulk_class = df_train["bulk_class"].values,
                                     tokenizer = tokenizer,
-                                    seq_len= tokenizer.model_max_length-2)
+                                    seq_len= tokenizer.model_max_length)
     # Initialize validation dataset
     val_dataset = PretrainDataset(texts = df_val["text"].values,
                                   ads_size = df_val["ads_size"].values,
                                   ads_class = df_val["ads_class"].values,
                                   bulk_class = df_val["bulk_class"].values,
                                   tokenizer = tokenizer,
-                                  seq_len= tokenizer.model_max_length-2)
+                                  seq_len= tokenizer.model_max_length)
     
     # Create training dataloader
     train_data_loader = DataLoader(train_dataset, batch_size = TRAIN_BS,
