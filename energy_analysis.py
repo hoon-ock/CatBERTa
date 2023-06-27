@@ -85,14 +85,15 @@ class EnergyAnalysis():
         print("Number of OOD_both: " + str(len(OOD_both)))
         return ID, OOD_ads, OOD_cat, OOD_both
     
-    def get_ml_and_dft_results(self, model, size):
+    def get_ml_and_dft_results(self, model):
         # combine DFT and ML results
         # DFT results are from the given dataframe
         # ML results are from the below pickle files
         df = self.df_val.set_index('id')
         dft = self.df_val['target']
-        file_path = f"/home/jovyan/CATBERT/data/ml-pred/val_{model}_{size}.pkl"
-        result = pd.read_pickle(file_path)
+        #file_path = f"data/ml-pred/{model}_energy_*.pkl"
+        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
+        result = pd.read_pickle(file_path[0])
         ml = pd.Series(result)
         dft = df['target']
         df_combined = pd.concat([dft, ml], axis=1)
@@ -112,20 +113,20 @@ class EnergyAnalysis():
     #     plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
     #     return r2, mae, rmse
     
-    def create_save_directory(self, model, size):
+    def create_save_directory(self, model):
         # create a directory to save plots/results
-        save_path = os.path.join(self.save_path, f'{model}_{size}')
+        save_path = os.path.join(self.save_path, f'{model}')
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         return save_path
 
-    def plot_val_splits(self, model, size):
+    def plot_val_splits(self, model):
         # plot parity plots and conduct analysis for each validation split
-        save_path = self.create_save_directory(model, size)
+        save_path = self.create_save_directory(model)
         
         # analysis on the entire validation data
         results = {}
-        df = self.get_ml_and_dft_results(model, size)
+        df = self.get_ml_and_dft_results(model)
         r2, mae, rmse = parity_plot(df['dft'], df['ml'],
                                     xlabel='DFT $\Delta E$ [eV]',
                                     ylabel=f'{self.title_map[model]} $\Delta E$ [eV]',
@@ -155,18 +156,16 @@ class EnergyAnalysis():
         df_results = pd.DataFrame(results).T
         df_results.columns = ['r2', 'mae', 'rmse']
         print(df_results)
-        df_results.to_csv(os.path.join(save_path, f'{model}_{size}.csv'))
+        df_results.to_csv(os.path.join(save_path, f'{model}.csv'))
         return df_results
     
-    def plot_energy_difference(self, model, size, 
+    def plot_energy_difference(self, model, 
                                sample_num=400, random_seed=17):
         # plot and conduct analysis for energy difference (ddE)
+        save_path = self.create_save_directory(model)
 
-        save_path = self.create_save_directory(model, size)
-
-         
-        file_path = f"/home/jovyan/CATBERT/data/ml-pred/val_{model}_{size}.pkl"
-        ml_result = pd.read_pickle(file_path)
+        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
+        ml_result = pd.read_pickle(file_path[0])
         df = self.df_val.set_index('id')
 
         # grouping chemically similar pairs
@@ -191,7 +190,7 @@ class EnergyAnalysis():
             # analysis on the entire energy difference pairs
             all_pairs = {**cat_swap, **ads_swap, **conf_swap, **all_swap}
             df_total = pd.DataFrame.from_dict(all_pairs, orient='index', columns=['dft', 'ml'])
-            _, _, rmse_t = parity_plot(df_total['dft'], df_total['ml'],
+            r2_t, mae_t, rmse_t = parity_plot(df_total['dft'], df_total['ml'],
                                         xlabel='DFT $\Delta \Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta \Delta E$ [eV]',
                                         plot_type='hexabin', xylim=[-12, 12])
@@ -217,12 +216,12 @@ class EnergyAnalysis():
             # subgroup = chemically similar pairs
             # entire = all pairs in each split
             secr = 100*(1-rmse/rmse_t)
-            results[self.name_map[name]] = [r2, mae, rmse, rmse_t, secr]
+            results[self.name_map[name]] = [r2, mae, rmse, r2_t, mae_t, rmse_t, secr]
         # save results
         df_results = pd.DataFrame(results).T
-        df_results.columns = ['r2', 'mae', 'rmse','rmse_t', 'secr']
+        df_results.columns = ['r2', 'mae', 'rmse', 'r2_t', 'mae_t','rmse_t', 'secr']
         print(df_results)
-        df_results.to_csv(os.path.join(save_path, f'ddE_{model}_{size}.csv'))
+        df_results.to_csv(os.path.join(save_path, f'ddE_{model}.csv'))
         
         return df_results
     
@@ -231,18 +230,20 @@ class EnergyAnalysis():
 if __name__ == "__main__":
     # load inputs
     metadata = pickle.load(open("metadata/oc20_meta/oc20_data_metadata.pkl", "rb"))
-    df_train = pd.read_pickle("data/df_is2re_100k_new.pkl")
-    df_val = pd.read_pickle("data/df_is2re_val_25k_new.pkl")
-    save_path = "/home/jovyan/CATBERT/results/dummy"
+    df_train = pd.read_pickle("data/df_train.pkl")
+    df_val = pd.read_pickle("data/df_val.pkl")
+    save_path = "figure/energy"
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     
     # iterate through models
     models = ['catbert', 'cgcnn', 'dimenet', 'schnet', 'dimenetpp']
     print("============ Analysis Initiation ============")
     Results = EnergyAnalysis(df_train, df_val, metadata, save_path)
     for model in models:
-        print("============ " + model + " ============")
+        print("================= " + model + " =================")
         print("----------------- Splits -----------------")
-        Results.plot_val_splits(model, '100k')
-        print("------------ Energy Difference ------------")
-        Results.plot_energy_difference(model, '100k')
+        Results.plot_val_splits(model)
+        # print("------------ Energy Difference ------------")
+        # Results.plot_energy_difference(model)
 

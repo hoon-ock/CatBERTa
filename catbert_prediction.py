@@ -24,7 +24,7 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
     data_loader = DataLoader(dataset, batch_size=16,
                             shuffle=False, num_workers=2)
     
-    
+    model.to(device)                                # Move model to the device.
     model.eval()                                    # Put model in evaluation mode.
     print('predicting...')
     predictions = []
@@ -54,7 +54,7 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
 
 if __name__ == '__main__':
     # ========================== INPUT ============================
-    ckpt_dir = "checkpoint/pretrain/pt_0625_2026"
+    ckpt_dir = "checkpoint/finetune/base-ft_0623_0038" #pretrain/pt_0625_2026"
     ckpt_name = ckpt_dir.split('/')[-1]
     # =============================================================
     import argparse 
@@ -76,7 +76,6 @@ if __name__ == '__main__':
     if args.base:
         tag = 'base'
         val_data_path = "data/df_val.pkl"
-    # "/home/jovyan/CATBERT/checkpoint/pretrain/pt_0621_0442"
         if pred == 'energy':
             raise ValueError('Cannot predict energy with base model!')
     
@@ -97,13 +96,16 @@ if __name__ == '__main__':
         tknz_path = paths["tknz"]
         head = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['params']['model_head']
         # Load Model Config
-        model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-        roberta_config = RobertaConfig.from_dict(model_config)
+        if 'base' in ckpt_name:
+            roberta_config = RobertaConfig.from_pretrained('roberta-base')
+        else:
+            model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
+            roberta_config = RobertaConfig.from_dict(model_config)
         # Load Checkpoint
         checkpoint = os.path.join(ckpt_dir, "checkpoint.pt")
     # Set Device 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu") # for debugging
+    # device = torch.device("cpu") # for debugging
 
     # ================== 1. Load Model and Tokenizer ==================
     if args.base:
@@ -128,7 +130,8 @@ if __name__ == '__main__':
                                     
     # ================== 2. Load Data ==================                               
     df_val = pd.read_pickle(val_data_path)
-    df_val = df_val.sample(500, random_state=17) # for debugging
+    # df_val = df_val.sample(5000, random_state=17) # for debugging
+    
     # ================== 3. Obtain Predictions ==================
     predictions = predict_fn(df_val, model, tokenizer, device, mode=pred)
     
@@ -137,7 +140,7 @@ if __name__ == '__main__':
     for i in range(len(df_val)):
         results[df_val.iloc[i]['id']] = predictions[i]
     
-    save_dir = f"/home/jovyan/CATBERT/results/{pred}"
+    save_dir = f"results/{pred}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 

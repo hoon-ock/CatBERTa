@@ -12,9 +12,8 @@ class AttentionAnalysis():
 
         self.checkpoint_dir = checkpoint_dir
         self.df_data = pd.read_pickle(data_path).set_index('id')
-        self.model, self.tokenizer, self.name = self.load_model_and_tokneizer()
+        self.model, self.tokenizer, self.name = self.load_model_and_tokenizer()
         self.save_path = save_path
-
     
     def load_model_and_tokenizer(self):
         '''
@@ -31,16 +30,22 @@ class AttentionAnalysis():
             name = 'base'
         else:
             print('===== Loading model from checkpoint =====')
-            model_config = yaml.load(open(os.path.join(self.checkpoint_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-            roberta_config = RobertaConfig.from_dict(model_config)
+            if 'base' in self.checkpoint_dir:
+                roberta_config = RobertaConfig.from_pretrained('roberta-base')
+                max_len = roberta_config.max_position_embeddings - 2
+            else:
+                model_config = yaml.load(open(os.path.join(self.checkpoint_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
+                roberta_config = RobertaConfig.from_dict(model_config)
+                max_len = model_config['max_position_embeddings']-2
+            
             backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
 
             # load checkpoint
             checkpoint = os.path.join(self.checkpoint_dir, "checkpoint.pt")
             model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
             # tokenizer
-            max_len = model_config['max_position_embeddings']
-            tokenizer = RobertaTokenizerFast.from_pretrained('tokenizer', max_len=self.max_len)
+            
+            tokenizer = RobertaTokenizerFast.from_pretrained('tokenizer', max_len=max_len)
             # checkpoint name
             name = checkpoint_dir.split('/')[-1]
         return model, tokenizer, name
@@ -52,7 +57,7 @@ class AttentionAnalysis():
         df = self.df_data.loc[id].to_frame().T
         model = self.model
         tokenizer = self.tokenizer
-        device = torch.device("cpu")
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         attentions = predict_fn(df, model, tokenizer, device, mode='attn')
         return attentions
     
@@ -64,8 +69,16 @@ class AttentionAnalysis():
         return: dict of first token index for each section
         '''
         # load the prompt files
-        path = "/home/jovyan/shared-scratch/jhoon/CATBERT/new_prompt"
-        file = pickle.load(open(os.path.join(path, f"{id}.pkl"), "rb"))
+        try:
+            # for laikapack
+            path = "/home/jovyan/shared-scratch/jhoon/CATBERT/new_prompt"
+            file = pickle.load(open(os.path.join(path, f"{id}.pkl"), "rb"))
+            
+        except:
+            # for local desktop
+            path = "metadata/prompts/val_catbert_100k.pkl"
+            file = pickle.load(open(path, "rb"))[id]
+            
         text = self.df_data.loc[id]['text']
         tokenizer = self.tokenizer
         tokens = tokenizer.encode(text, return_tensors='pt')
@@ -113,6 +126,9 @@ class AttentionAnalysis():
         '''
         attentions = self.predict_attention(id)
         first_token_ids = self.get_first_token_idx(id)
+        keys = list(first_token_ids.keys())
+        index_range = [(first_token_ids[keys[i]], first_token_ids[keys[i+1]]) for i in range(len(keys)-1)]
+        # [(system, conf_i), (conf_i, ads), (ads, cat), (cat, eos)]
         # Create a 3 by 4 subplot layout
         fig, axes = plt.subplots(3, 4, figsize=(12, 9))
 
@@ -133,7 +149,7 @@ class AttentionAnalysis():
 
         # Save the figure
         id = id.split('random')[-1]
-        full_save_path = os.path.join(self.save_path, f"{self.name}_attn_{id}.png")
+        full_save_path = os.path.join(self.save_path, f"{self.name}_{id}.png")
         plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
 
     def plot_section_attention_score(self, id, relative=True, combined=False):
@@ -180,14 +196,14 @@ class AttentionAnalysis():
         plt.tight_layout()
 
         id = id.split('random')[-1]
-        full_save_path = os.path.join(self.save_path, f"{self.name}_attn_section_{id}.png")
+        full_save_path = os.path.join(self.save_path, f"sec_{self.name}_{id}.png")
         plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
         
         if combined:
             print('This option is not implemented yet')
             fig_combined, ax_combined = plt.subplots(figsize=(12, 9))
             sns.heatmap(combined_attn, ax=ax_combined, cmap='Reds')
-            full_save_path = os.path.join(self.save_path, f"attn_section_{id}.png")
+            full_save_path = os.path.join(self.save_path, f"combined_{self.name}_{id}.png")
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
 
 
@@ -197,10 +213,12 @@ if __name__ == '__main__':
     id = "random2534624"
     # example_ids = ['random633147', 'random2190634', 'random2405750',
     #                'random1923577', 'random1943940']
-    checkpoint_dir = "checkpoint/pretrain/mlm-pt_0623_0522"
+    checkpoint_dir = "checkpoint/finetune/base-ft_0623_0038"
     data_path = "data/df_val.pkl"
-    save_path = "results/dummy/"
+    save_path = "figure/attn/"
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
 
     analysis = AttentionAnalysis(checkpoint_dir, data_path, save_path)
     analysis.plot_attention_score(id)
-    analysis.plot_section_attention_score(id)
+    # analysis.plot_section_attention_score(id)

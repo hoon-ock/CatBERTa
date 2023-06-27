@@ -37,7 +37,7 @@ class EmbeddingAnalysis:
         '''
         splits: ID, OOD-ads, OOD-cat, OOD-both
         '''
-        split_id_path = 'metadata/split_ids/val/'
+        split_id_path = 'metadata/split_ids'
         
         split_ids = {}
         for split in self.split_names:
@@ -45,6 +45,7 @@ class EmbeddingAnalysis:
             with open(path, 'rb') as f:
                 split_ids[split] = pickle.load(f)
         return split_ids
+
     
     def get_df_emb(self):
         '''
@@ -108,7 +109,7 @@ class EmbeddingAnalysis:
             data = tsne_result,
             ax=ax,
             legend = "full",
-            # alpha=0.6
+            alpha=0.2
         )
         lim = (self.tsne_obj.min()-5, self.tsne_obj.max()+5)
         ax.set_xlim(lim)
@@ -128,6 +129,11 @@ class EmbeddingAnalysis:
         # Make the legend box transparent
         legend.get_frame().set_alpha(None)
         legend.get_frame().set_facecolor((0, 0, 0, 0))
+
+        # Set axis labels
+        ax.set_xlabel("t-SNE 1", fontsize=16)
+        ax.set_ylabel("t-SNE 2", fontsize=16)
+
         # Adjust spacing and padding
         plt.tight_layout()  
         
@@ -136,10 +142,11 @@ class EmbeddingAnalysis:
     
 if __name__ == "__main__":
     data_path = 'data/df_val.pkl'
-    emb_path = 'results/catbert/catbert_pt_embed_pt_0621_0442.pkl'
-    perplexity = 10
-    save_dir = 'dummy'
+    emb_path = 'results/embed/catbert_embed_base-ft_0623_0038.pkl'
+    perplexity = 30
+    save_dir = 'figure/embed'
     emb_analysis = EmbeddingAnalysis(data_path, emb_path, perplexity, save_dir)
     
     for label in ['split', 'ads_size', 'ads_class', 'bulk_class']:
+        print(f"Plotting {label}...!")
         emb_analysis.plot_tsne(label)
