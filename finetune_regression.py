@@ -26,7 +26,7 @@ train_data_path = paths["train_data"]
 val_data_path = paths["val_data"] 
 pt_ckpt_path = paths["pt_ckpt"] 
 tknz_path = paths["tknz"]
-ckpt_for_further_train = 'checkpoint/finetune/ft_0619_0223/checkpoint.pt'
+# ckpt_for_further_train = 'checkpoint/finetune/ft_0619_0223/checkpoint.pt'
 
 # ================= 1. Load data ======================
 df_train = pd.read_pickle(train_data_path)

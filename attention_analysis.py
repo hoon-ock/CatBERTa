@@ -11,43 +11,47 @@ class AttentionAnalysis():
     def __init__(self, checkpoint_dir, data_path, save_path):
 
         self.checkpoint_dir = checkpoint_dir
-        self.checkpoint_name = checkpoint_dir.split('/')[-1]
         self.df_data = pd.read_pickle(data_path).set_index('id')
-        self.model_config = yaml.load(open(os.path.join(self.checkpoint_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-        self.model = self.load_model()
-        self.roberta_model = RobertaModel.from_pretrained('roberta-base')
-        self.max_len = self.model_config['max_position_embeddings']
-        self.tokenizer = RobertaTokenizerFast.from_pretrained('tokenizer', max_len=self.max_len)
-        self.roberta_tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', max_len=self.max_len)
+        self.model, self.tokenizer, self.name = self.load_model_and_tokneizer()
         self.save_path = save_path
 
     
-    def load_model(self):
+    def load_model_and_tokenizer(self):
         '''
         Load roberta model from checkpoint
         Even though the checkpoint is for the whole model, 
         we only load the backbone to generate the attentions.
         '''
         # load backbone roberta model
-        roberta_config = RobertaConfig.from_dict(self.model_config)
-        backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
 
-        # load checkpoint
-        checkpoint = os.path.join(self.checkpoint_dir, "checkpoint.pt")
-        model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
-        return model
+        if self.checkpoint_dir == 'roberta-base':
+            print('===== Loading roberta-base model =====')
+            model = RobertaModel.from_pretrained('roberta-base')
+            tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
+            name = 'base'
+        else:
+            print('===== Loading model from checkpoint =====')
+            model_config = yaml.load(open(os.path.join(self.checkpoint_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
+            roberta_config = RobertaConfig.from_dict(model_config)
+            backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
 
-    def predict_attention(self, id, base_mode=False):
+            # load checkpoint
+            checkpoint = os.path.join(self.checkpoint_dir, "checkpoint.pt")
+            model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
+            # tokenizer
+            max_len = model_config['max_position_embeddings']
+            tokenizer = RobertaTokenizerFast.from_pretrained('tokenizer', max_len=self.max_len)
+            # checkpoint name
+            name = checkpoint_dir.split('/')[-1]
+        return model, tokenizer, name
+
+    def predict_attention(self, id):
         '''
         Predict attention for a given id
         '''
         df = self.df_data.loc[id].to_frame().T
-        if base_mode:
-            model = self.roberta_model
-            tokenizer = self.roberta_tokenizer
-        else:
-            model = self.model
-            tokenizer = self.tokenizer
+        model = self.model
+        tokenizer = self.tokenizer
         device = torch.device("cpu")
         attentions = predict_fn(df, model, tokenizer, device, mode='attn')
         return attentions
@@ -102,13 +106,12 @@ class AttentionAnalysis():
 
         return first_token_ids
 
-    def plot_attention_score(self, id, base_mode=False):
+    def plot_attention_score(self, id):
         '''
         Plot the attention score between <s> and every token in the text for each head
         id: id of the sample
-        base_mode: whether to use base roberta model or fine-tuned model
         '''
-        attentions = self.predict_attention(id, base_mode)
+        attentions = self.predict_attention(id)
         first_token_ids = self.get_first_token_idx(id)
         # Create a 3 by 4 subplot layout
         fig, axes = plt.subplots(3, 4, figsize=(12, 9))
@@ -129,23 +132,18 @@ class AttentionAnalysis():
         plt.tight_layout()
 
         # Save the figure
-        if base_mode:
-            prefix='base-'
-        else:
-            prefix= self.checkpoint_name
         id = id.split('random')[-1]
-        full_save_path = os.path.join(self.save_path, f"{prefix}_attn_{id}.png")
+        full_save_path = os.path.join(self.save_path, f"{self.name}_attn_{id}.png")
         plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
 
-    def plot_section_attention_score(self, id, base_mode=False, relative=True, combined=False):
+    def plot_section_attention_score(self, id, relative=True, combined=False):
         '''
         Aggregate the attention score for each section and plot the score
         id: id of the sample
-        base_mode: whether to use base roberta model or finetuned model
         relative: whether to plot the averaged score or summed score
         combined: whether to plot the combined score for all heads (under construction)
         '''
-        attentions = self.predict_attention(id, base_mode)
+        attentions = self.predict_attention(id)
         first_token_ids = self.get_first_token_idx(id)
         # convert first_token_ids to list of tuples
         # [(system, conf_i), (conf_i, ads), (ads, cat), (cat, eos)]
@@ -180,12 +178,9 @@ class AttentionAnalysis():
             combined_attn = np.concatenate((combined_attn, section_attn), axis=1)
         # Adjust the layout spacing
         plt.tight_layout()
-        if base_mode:
-            prefix='base-'
-        else:
-            prefix= self.checkpoint_name
+
         id = id.split('random')[-1]
-        full_save_path = os.path.join(self.save_path, f"{prefix}_attn_section_{id}.png")
+        full_save_path = os.path.join(self.save_path, f"{self.name}_attn_section_{id}.png")
         plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
         
         if combined:
@@ -207,5 +202,5 @@ if __name__ == '__main__':
     save_path = "results/dummy/"
 
     analysis = AttentionAnalysis(checkpoint_dir, data_path, save_path)
-    analysis.plot_attention_score(id, base_mode=True)
-    analysis.plot_section_attention_score(id, base_mode=True)
+    analysis.plot_attention_score(id)
+    analysis.plot_section_attention_score(id)
