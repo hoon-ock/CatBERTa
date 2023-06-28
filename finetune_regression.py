@@ -6,7 +6,7 @@ import shutil
 from transformers import (RobertaConfig, RobertaTokenizer, 
                           RobertaModel, RobertaTokenizerFast)
 from model.finetune_utils import run_finetuning
-from model.common import backbone_wrapper
+from model.common import backbone_wrapper, checkpoint_loader
 from datetime import datetime
 import argparse 
 parser = argparse.ArgumentParser(description='Set the running mode')
@@ -43,18 +43,21 @@ params = yaml.load(open(ft_config_path, "r"), Loader=yaml.FullLoader)['params']
 if pt_ckpt_path == 'roberta-base':
     backbone = RobertaModel.from_pretrained('roberta-base')
 else:
-    config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)['roberta_config']
+    config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)
     roberta_config = RobertaConfig.from_dict(config)
     backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-    pt_ckpt = torch.load(os.path.join(pt_ckpt_path, 'checkpoint.pt'))
-    backbone.load_state_dict(pt_ckpt, strict=False)
+    # pt_ckpt = torch.load(os.path.join(pt_ckpt_path, 'checkpoint.pt'))
+    # backbone.load_state_dict(pt_ckpt, strict=False)
+    ckpt_path = os.path.join(pt_ckpt_path, 'checkpoint.pt')
+    backbone = checkpoint_loader(backbone, ckpt_path, load_on_roberta=True)
+    print("Loaded pre-trained model from: ", ckpt_path)
 # wrap with a regression head
 model = backbone_wrapper(backbone, params['model_head'])
 # if start training from pretrained header
 # model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 
 # ================= 3. Load tokenizer ======================
-max_len = backbone.embeddings.position_embeddings.num_embeddings
+max_len = backbone.embeddings.position_embeddings.num_embeddings-2
 tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
 print("Max length: ", tokenizer.model_max_length)
 # ================= 4. Set device ======================
