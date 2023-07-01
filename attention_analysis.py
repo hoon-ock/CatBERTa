@@ -42,13 +42,12 @@ class AttentionAnalysis():
 
             # load checkpoint
             checkpoint = os.path.join(self.checkpoint_dir, "checkpoint.pt")
-            model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
+            checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
             # tokenizer
-            
             tokenizer = RobertaTokenizerFast.from_pretrained('tokenizer', max_len=max_len)
             # checkpoint name
             name = checkpoint_dir.split('/')[-1]
-        return model, tokenizer, name
+        return backbone, tokenizer, name
 
     def predict_attention(self, id):
         '''
@@ -126,27 +125,33 @@ class AttentionAnalysis():
         '''
         attentions = self.predict_attention(id)
         first_token_ids = self.get_first_token_idx(id)
-        keys = list(first_token_ids.keys())
-        index_range = [(first_token_ids[keys[i]], first_token_ids[keys[i+1]]) for i in range(len(keys)-1)]
-        # [(system, conf_i), (conf_i, ads), (ads, cat), (cat, eos)]
         # Create a 3 by 4 subplot layout
-        fig, axes = plt.subplots(3, 4, figsize=(12, 9))
-
+        fig, axes = plt.subplots(3, 4, figsize=(9, 12))
         # Iterate over each subplot
         for i, ax in enumerate(axes.flatten()):
             # Get the attention values for the current subplot
             attn = attentions[0, i, 0, :first_token_ids['eos']].detach().cpu().numpy()
             attn = attn.reshape(-1, 1)
-
             # Plot the heatmap
             sns.heatmap(attn, ax=ax, xticklabels=False, cmap='Reds')#'coolwarm')
-
+            # Set the y-ticks for initial and final points of each section
+            y_ticks = list(first_token_ids.values())
+            ax.set_yticks(y_ticks)
+            ax.set_yticklabels(['']*len(y_ticks))
+            # Set the y-ticks for the middle of each section
+            y_ticks_additional = [(y_ticks[i] + y_ticks[i+1]) / 2 for i in range(len(y_ticks) - 1)]
+            y_tick_labels = ['sys', 'conf', 'ads', 'bulk']
+            ax.set_yticks(y_ticks_additional, minor=True)
+            ax.set_yticklabels(y_tick_labels, minor=True, fontsize=12)
+            # Adjust the length of the y-ticks separately
+            tick_params = {'length': 15, 'pad': 2}
+            ax.tick_params(axis='y', which='major', **tick_params)
+            tick_params_minor = {'length':0}
+            ax.tick_params(axis='y', which='minor', **tick_params_minor)
             # Set the title for the subplot
-            ax.set_title('Head {}'.format(i + 1))
-
+            ax.set_title('Head {}'.format(i + 1), fontsize=14)
         # Adjust the layout spacing
         plt.tight_layout()
-
         # Save the figure
         id = id.split('random')[-1]
         full_save_path = os.path.join(self.save_path, f"{self.name}_{id}.png")
@@ -213,9 +218,9 @@ if __name__ == '__main__':
     id = "random2534624"
     # example_ids = ['random633147', 'random2190634', 'random2405750',
     #                'random1923577', 'random1943940']
-    checkpoint_dir = "checkpoint/finetune/base-ft_0623_0038"
+    checkpoint_dir = "checkpoint/finetune/ft_0630_0229"
     data_path = "data/df_val.pkl"
-    save_path = "figure/attn/"
+    save_path = "figure/attn"  #base-ft_0623_0038"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 

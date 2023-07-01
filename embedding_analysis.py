@@ -144,7 +144,7 @@ if __name__ == "__main__":
     data_path = 'data/df_val.pkl'
     emb_path = 'results/embed/catbert_embed_base-ft_0623_0038.pkl'
     perplexity = 30
-    save_dir = 'figure/embed'
+    save_dir = 'figure/embed/base-ft_0623_0038'
     emb_analysis = EmbeddingAnalysis(data_path, emb_path, perplexity, save_dir)
     
     for label in ['split', 'ads_size', 'ads_class', 'bulk_class']:
