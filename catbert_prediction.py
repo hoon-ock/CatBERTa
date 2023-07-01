@@ -114,19 +114,23 @@ if __name__ == '__main__':
         tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', max_len=max_len)
         model = backbone
     else:
-        backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+        #backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+        backbone = RobertaModel.from_pretrained(checkpoint, config=roberta_config)
         max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-        model = backbone_wrapper(backbone, head)
+        if pred == 'energy':
+            model = backbone_wrapper(backbone, head)
+        else:
+            model = backbone
         # model.load_state_dict(torch.load(checkpoint))
         tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
-        if pred == 'energy':
-            # To generate energy, we need to load the model with the head.
-            # So, we need to load the model from the checkpoint on the whole model.
-            model = checkpoint_loader(model, checkpoint, load_on_roberta=False)
-        elif pred == 'embed' or pred == 'attn':
-            # To generate embeddings/attention, we need to load the model without the head.
-            # So, we need to load the model from the checkpoint only on the backbone.
-            model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
+        # if pred == 'energy':
+        #     # To generate energy, we need to load the model with the head.
+        #     # So, we need to load the model from the checkpoint on the whole model.
+        #     model = checkpoint_loader(model, checkpoint, load_on_roberta=False)
+        # elif pred == 'embed' or pred == 'attn':
+        #     # To generate embeddings/attention, we need to load the model without the head.
+        #     # So, we need to load the model from the checkpoint only on the backbone.
+        #     model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
                                     
     # ================== 2. Load Data ==================                               
     df_val = pd.read_pickle(val_data_path)

@@ -92,7 +92,7 @@ class EnergyAnalysis():
         df = self.df_val.set_index('id')
         dft = self.df_val['target']
         #file_path = f"data/ml-pred/{model}_energy_*.pkl"
-        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
+        file_path = glob.glob(f"results/energy/{model}_*.pkl")
         result = pd.read_pickle(file_path[0])
         ml = pd.Series(result)
         dft = df['target']
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         os.makedirs(save_path)
     
     # iterate through models
-    models = ['catbert', 'cgcnn', 'dimenet', 'schnet', 'dimenetpp']
+    models = ['cgcnn', 'dimenet', 'schnet', 'dimenetpp']
     print("============ Analysis Initiation ============")
     Results = EnergyAnalysis(df_train, df_val, metadata, save_path)
     for model in models:

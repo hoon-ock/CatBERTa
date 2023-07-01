@@ -36,6 +36,7 @@ def get_encodings_from_texts(texts, tokenizer):
         labels.append(sample['input_ids'])
         mask.append(sample['attention_mask'])
         input_ids.append(mlm(sample['input_ids'].clone(), tokenizer.mask_token_id))
+        # breakpoint()
     input_ids = torch.cat(input_ids)
     mask = torch.cat(mask)
     labels = torch.cat(labels)
@@ -132,7 +133,7 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
         if loss < best_loss:
             best_loss = loss
             early_stopping_counter = 0
-            save_ckpt_path = os.path.join("./checkpoint/pretrain/", run_name)
+            save_ckpt_path = os.path.join("checkpoint/pretrain/", run_name)
             if not os.path.exists(save_ckpt_path):
                 os.makedirs(save_ckpt_path)
             # model.save_pretrained(full_save_path)
@@ -154,6 +155,7 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
 if __name__ == '__main__':
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
+    parser.add_argument('--base', action='store_true', help='Pretrain with base model')
     parser.add_argument('--debug', action='store_true', help='Enable debugging mode')
     args = parser.parse_args()
     if args.debug:
@@ -162,7 +164,7 @@ if __name__ == '__main__':
         print('Pretraining with base model!')
 
     # ============== 0. Read pretrain config file ======================
-    pt_config_path = "./config/pt_config.yaml"
+    pt_config_path = "config/pt_config.yaml"
     paths = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['paths']
     train_data_path = paths["train_data"]
     val_data_path = paths["val_data"]
@@ -180,22 +182,21 @@ if __name__ == '__main__':
     print("Training data size: " + str(df_train.shape[0]))
     print("Validation data size : " + str(df_val.shape[0]))
 
-    # ================= 2. Load model ======================
+    # ================= 2. Load model and tokenizer ======================
     if args.base:
         model = RobertaForMaskedLM.from_pretrained('roberta-base')
         #max_len = model.roberta.embeddings.position_embeddings.num_embeddings
+        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
     else:
         roberta_config = RobertaConfig.from_dict(model_config)
         model = RobertaForMaskedLM(roberta_config)
-        
-    
-    # ================= 3. Load tokenizer ======================
-    max_len = model.roberta.embeddings.position_embeddings.num_embeddings-2
-    print('Max length:', max_len)
-    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+        max_len = model.roberta.embeddings.position_embeddings.num_embeddings-2
+        print('Max length:', max_len)
+        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+    # breakpoint()
     # ================= 4. Set device ======================   
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    #device = torch.device('cpu')
+
     if args.debug:
         device = torch.device('cpu')
     print('Device:', device)
@@ -214,7 +215,7 @@ if __name__ == '__main__':
         run_name = 'base-'+run_name
     print("Run name: ", run_name)
 
-    save_dir = os.path.join(f"./checkpoint/pretrain/{run_name}")
+    save_dir = os.path.join(f"checkpoint/pretrain/{run_name}")
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     # save config files for reference

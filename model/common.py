@@ -42,15 +42,19 @@ def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
     if load_on_roberta:
         # this is option is to load the checkpoint on the roberta_model
         # in this case, the checkpoint should be from pretraining
-        matching_state_dict = {k.replace('roberta_model.', ''): v for k, v in state_dict.items() if k.replace('roberta_model.', '') in model_dict}
+        if 'mlm' in checkpoint_path:
+            matching_state_dict = {k.replace('roberta.', ''): v for k, v in state_dict.items() if k.replace('roberta.', '') in model_dict}
+        else:
+            matching_state_dict = {k.replace('roberta_model.', ''): v for k, v in state_dict.items() if k.replace('roberta_model.', '') in model_dict}
     else:
         # this is option is to continue training on the whole model with head
         matching_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
     
     if matching_state_dict.keys() == model_dict.keys():
         print('All keys matched!')
-    else:
-        print('Some keys did not match!')
-
+    elif len(matching_state_dict.keys()) == 0:
+        # raise error
+        raise ValueError(f"Unknown model_head: No matching keys!")
+    #breakpoint()
     model.load_state_dict(matching_state_dict, strict=False)
-    return model
+    #return model

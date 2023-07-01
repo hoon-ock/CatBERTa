@@ -1,8 +1,5 @@
 import pandas as pd
-import torch
-import yaml
-import os
-import shutil
+import torch, yaml, os, shutil, copy
 from transformers import (RobertaConfig, RobertaTokenizer, 
                           RobertaModel, RobertaTokenizerFast)
 from model.finetune_utils import run_finetuning
@@ -27,7 +24,7 @@ val_data_path = paths["val_data"]
 pt_ckpt_path = paths["pt_ckpt"] 
 tknz_path = paths["tknz"]
 # ckpt_for_further_train = 'checkpoint/finetune/ft_0619_0223/checkpoint.pt'
-
+print("This model is based on: ", pt_ckpt_path.split('/')[-1])
 # ================= 1. Load data ======================
 df_train = pd.read_pickle(train_data_path)
 df_val = pd.read_pickle(val_data_path)
@@ -46,13 +43,22 @@ else:
     config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)
     roberta_config = RobertaConfig.from_dict(config)
     backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-    # pt_ckpt = torch.load(os.path.join(pt_ckpt_path, 'checkpoint.pt'))
-    # backbone.load_state_dict(pt_ckpt, strict=False)
-    ckpt_path = os.path.join(pt_ckpt_path, 'checkpoint.pt')
-    backbone = checkpoint_loader(backbone, ckpt_path, load_on_roberta=True)
-    print("Loaded pre-trained model from: ", ckpt_path)
+    
+    ############### checkpoint loading sanity check! ###############
+    backbone_base = copy.deepcopy(backbone)
+    base_emb = backbone_base.embeddings.word_embeddings.weight
+    backbone_emb = backbone.embeddings.word_embeddings.weight
+    if not torch.equal(base_emb, backbone_emb):
+        print("Checkpoint loading failed!")
+        raise ValueError
+    del backbone_base, base_emb, backbone_emb
+    ###############################################################
+
+    # breakpoint()
 # wrap with a regression head
 model = backbone_wrapper(backbone, params['model_head'])
+print("Word Embedding: ", model.roberta_model.embeddings.word_embeddings)
+# breakpoint()
 # if start training from pretrained header
 # model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 

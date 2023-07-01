@@ -7,13 +7,16 @@ class MyModel(nn.Module):
             
     def __init__(self, model):        
         super().__init__() 
-        self.roberta_model = model 
+        self.roberta_model = model
+        #self.emb_dim = model.embeddings.position_embeddings.embedding_dim #768
         self.regressor = nn.Linear(768, 1)     
 
     def forward(self, input_ids, attention_mask):        
         raw_output = self.roberta_model(input_ids, attention_mask, return_dict=True)        
+        # pooler = raw_output["last_hidden_state"][:,0,:] # Shape is [batch_size, 768]
         pooler = raw_output["pooler_output"]    # Shape is [batch_size, 768]
         output = self.regressor(pooler)         # Shape is [batch_size, 1]
+        # breakpoint()
         return output 
 
 
@@ -89,6 +92,7 @@ class MyModel_MLP(nn.Module):
 
     def forward(self, input_ids, attention_mask):        
         raw_output = self.roberta_model(input_ids, attention_mask, return_dict=True)        
+        # pooler = raw_output["last_hidden_state"][:,0,:] # Shape is [batch_size, 768]
         pooler = raw_output["pooler_output"]    # Shape is [batch_size, 768]
         output = self.regressor(pooler)         # Shape is [batch_size, 1]
         return output 
