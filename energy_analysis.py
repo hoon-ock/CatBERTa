@@ -127,6 +127,8 @@ class EnergyAnalysis():
         # analysis on the entire validation data
         results = {}
         df = self.get_ml_and_dft_results(model)
+        if 'catbert' in model:
+            model = 'catbert'
         r2, mae, rmse = parity_plot(df['dft'], df['ml'],
                                     xlabel='DFT $\Delta E$ [eV]',
                                     ylabel=f'{self.title_map[model]} $\Delta E$ [eV]',
@@ -164,7 +166,7 @@ class EnergyAnalysis():
         # plot and conduct analysis for energy difference (ddE)
         save_path = self.create_save_directory(model)
 
-        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
+        file_path = glob.glob(f"results/energy/{model}_*.pkl")
         ml_result = pd.read_pickle(file_path[0])
         df = self.df_val.set_index('id')
 
@@ -237,7 +239,7 @@ if __name__ == "__main__":
         os.makedirs(save_path)
     
     # iterate through models
-    models = ['cgcnn', 'dimenet', 'schnet', 'dimenetpp']
+    models = ['catbert_base-ft_0623_2101']
     print("============ Analysis Initiation ============")
     Results = EnergyAnalysis(df_train, df_val, metadata, save_path)
     for model in models:

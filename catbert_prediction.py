@@ -54,7 +54,7 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
 
 if __name__ == '__main__':
     # ========================== INPUT ============================
-    ckpt_dir = "checkpoint/finetune/base-ft_0623_0038" #pretrain/pt_0625_2026"
+    ckpt_dir = "checkpoint/finetune/base-ft_0623_2101" #pretrain/pt_0625_2026"
     ckpt_name = ckpt_dir.split('/')[-1]
     # =============================================================
     import argparse 
@@ -114,24 +114,20 @@ if __name__ == '__main__':
         tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', max_len=max_len)
         model = backbone
     else:
-        #backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-        backbone = RobertaModel.from_pretrained(checkpoint, config=roberta_config)
+        backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
         max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-        if pred == 'energy':
-            model = backbone_wrapper(backbone, head)
-        else:
-            model = backbone
         # model.load_state_dict(torch.load(checkpoint))
         tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
-        # if pred == 'energy':
-        #     # To generate energy, we need to load the model with the head.
-        #     # So, we need to load the model from the checkpoint on the whole model.
-        #     model = checkpoint_loader(model, checkpoint, load_on_roberta=False)
-        # elif pred == 'embed' or pred == 'attn':
-        #     # To generate embeddings/attention, we need to load the model without the head.
-        #     # So, we need to load the model from the checkpoint only on the backbone.
-        #     model = checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
-                                    
+        if pred == 'energy':
+            # To generate energy, we need to load the model with the head.
+            # So, we need to load the model from the checkpoint on the whole model.
+            model = backbone_wrapper(backbone, head)
+            checkpoint_loader(model, checkpoint, load_on_roberta=False)
+        elif pred == 'embed' or pred == 'attn':
+            # To generate embeddings/attention, we need to load the model without the head.
+            # So, we need to load the model from the checkpoint only on the backbone.
+            checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
+            model = backbone                        
     # ================== 2. Load Data ==================                               
     df_val = pd.read_pickle(val_data_path)
     # df_val = df_val.sample(5000, random_state=17) # for debugging
@@ -148,6 +144,6 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    save_path = os.path.join(save_dir, f"catbert_{pred}_{tag}.pkl")
+    save_path = os.path.join(save_dir, f"catbert_{tag}_{pred}.pkl")
     with open(save_path, "wb") as f:
         pickle.dump(results, f)   
