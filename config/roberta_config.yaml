@@ -1,5 +1,5 @@
-vocab_size: 50265
-max_position_embeddings: 770 # 768 + 2 (positional embedding offset)
+vocab_size: 50265   # vocab size of the tokenizer (default: 50_265)
+max_position_embeddings: 770  # 768 + 2 (positional embedding offset)
 hidden_size: 768
 num_attention_heads: 12
 num_hidden_layers: 12

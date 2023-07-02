@@ -1,17 +1,17 @@
 params:
   num_epochs: 50
   batch_size: 16
-  lr: 5.0e-7
+  lr: 1.0e-6
   early_stop_threshold: 4
   scheduler: linear # constant, linear
   warmup_steps: 0
-  optimizer: gLLRD    # AdamW, gLLRD
-  model_head: mlp     # pooler, mlp, mlp2, attnhead, concatlayer
+  optimizer: AdamW    # AdamW, gLLRD
+  model_head: pooler     # pooler, mlp, mlp2, attnhead, concatlayer
   loss_fn: rmse       # mae, rmse, L2
 
 paths:
   train_data: "data/df_train.pkl"
   val_data: "data/df_val.pkl"
   ft_config: "config/ft_config.yaml"
-  pt_ckpt: "checkpoint/pretrain/pt_0625_2026" # "roberta-base'
+  pt_ckpt: "checkpoint/pretrain/pt_0625_2026" #pt_0625_2026 mlm-pt_0623_0522 "roberta-base'
   tknz: "tokenizer"

@@ -92,7 +92,7 @@ class EnergyAnalysis():
         df = self.df_val.set_index('id')
         dft = self.df_val['target']
         #file_path = f"data/ml-pred/{model}_energy_*.pkl"
-        file_path = glob.glob(f"results/energy/{model}_*.pkl")
+        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
         result = pd.read_pickle(file_path[0])
         ml = pd.Series(result)
         dft = df['target']
