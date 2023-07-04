@@ -3,7 +3,8 @@ from transformers import (RobertaConfig, RobertaModel)
 from model.regressors import (MyModel, MyModel2, 
                               MyModel_MLP, MyModel_MLP2,
                               MyModel_AttnHead, 
-                              MyModel_ConcatLast4Layers)
+                              MyModel_ConcatLast4Layers,
+                              MultimodalRegressor)
 from model.classifiers import MultiLabelClassifier
 
 def backbone_wrapper(backbone, head_type):
@@ -25,6 +26,8 @@ def backbone_wrapper(backbone, head_type):
         model = MyModel_ConcatLast4Layers(backbone)
     elif head_type == "multilabel":
         model = MultiLabelClassifier(backbone)
+    elif head_type == "multimodal":
+        model = MultimodalRegressor(backbone)
     else:
         raise ValueError(f"Unknown model_head: {head_type}") 
     
@@ -49,7 +52,7 @@ def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
     else:
         # this is option is to continue training on the whole model with head
         matching_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
-    
+    # breakpoint()
     if matching_state_dict.keys() == model_dict.keys():
         print('All keys matched!')
     elif len(matching_state_dict.keys()) == 0:

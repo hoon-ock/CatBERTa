@@ -2,7 +2,7 @@ import numpy as np
 import torch, transformers, os
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from model.dataset import FinetuneDataset
+from model.dataset import MultimodalDataset
 import wandb
 from tqdm import tqdm
 
@@ -15,64 +15,28 @@ def rmse_loss_fn(predictions, targets):
     return torch.sqrt(nn.MSELoss()(predictions, targets))
 
 
-def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
-        
-    opt_parameters = [] # To be passed to the optimizer (only parameters of the layers you want to update).
-    debug_param_groups = []
-    named_parameters = list(model.named_parameters()) 
-    
-    # According to AAAMLP book by A. Thakur, we generally do not use any decay 
-    # for bias and LayerNorm.weight layers.
-    no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
-    set_2 = ["layer.4", "layer.5", "layer.6", "layer.7"]
-    set_3 = ["layer.8", "layer.9", "layer.10", "layer.11"]
-    
-    for i, (name, params) in enumerate(named_parameters):  
-        
-        weight_decay = 0.0 if any(p in name for p in no_decay) else 0.01
- 
-        if name.startswith("roberta_model.embeddings") or name.startswith("roberta_model.encoder"):            
-            # For first set, set lr to 1e-6 (i.e. 0.000001)
-            lr = init_lr       
-            
-            # For set_2, increase lr to 0.00000175
-            lr = init_lr * 1.75 if any(p in name for p in set_2) else lr
-            
-            # For set_3, increase lr to 0.0000035 
-            lr = init_lr * 3.5 if any(p in name for p in set_3) else lr
-            
-            opt_parameters.append({"params": params,
-                                   "weight_decay": weight_decay,
-                                   "lr": lr})  
-            
-        # For regressor and pooler, set lr to 0.0000036 (slightly higher than the top layer).                
-        if name.startswith("regressor") or name.startswith("roberta_model.pooler"):               
-            lr = init_lr * 3.6 
-            
-            opt_parameters.append({"params": params,
-                                   "weight_decay": weight_decay,
-                                   "lr": lr})    
-            
-        debug_param_groups.append(f"{i} {name}")
-
-    if debug: 
-        for g in range(len(debug_param_groups)): print(debug_param_groups[g]) 
-
-    return torch.optim.AdamW(opt_parameters, lr=init_lr, weight_decay=0.01), debug_param_groups
-
 def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
     model.train()                               # Put the model in training mode.                   
     lr_list = []
     train_losses = []
     print('training...')
+    
     for batch in tqdm(data_loader):                   # Loop over all batches.
+        # convert dictionary input to torch tensors
+        sections = batch["ids"].keys()
+        ids = [] 
+        masks = [] 
+        for section in sections:
+            ids.append(batch["ids"][section])
+            masks.append(batch["masks"][section])
+        
+        ids = torch.stack(ids, dim=0).to(device, dtype=torch.long)
+        masks = torch.stack(masks, dim=0).to(device, dtype=torch.long)
+        targets = batch["target"].to(device, dtype=torch.float)
 
-        ids = batch["ids"].to(device, dtype=torch.long)
-        masks = batch["masks"].to(device, dtype=torch.long)
-        targets = batch["target"].to(device, dtype=torch.float) 
-        breakpoint()
         optimizer.zero_grad()                   # To zero out the gradients.
         outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
+        
         # Get the training loss.
         if loss_fn == 'mae':
             loss = mae_loss_fn(outputs, targets)
@@ -92,13 +56,21 @@ def validate_fn(data_loader, model, device, loss_fn='rmse'):
     model.eval()                                    # Put model in evaluation mode.
     val_losses = []
     val_maes = []
-    print('validation')
+    print('validating..')
     with torch.no_grad():                           # Disable gradient calculation.
         for batch in tqdm(data_loader):                   # Loop over all batches.   
             
-            ids = batch["ids"].to(device, dtype=torch.long)
-            masks = batch["masks"].to(device, dtype=torch.long)
+            sections = batch["ids"].keys()
+            ids = [] 
+            masks = [] 
+            for section in sections:
+                ids.append(batch["ids"][section])
+                masks.append(batch["masks"][section])
+                # targets = torch.cat((targets, batch["target"][section]), 0)
+            ids = torch.stack(ids, dim=0).to(device, dtype=torch.long)
+            masks = torch.stack(masks, dim=0).to(device, dtype=torch.long)
             targets = batch["target"].to(device, dtype=torch.float)
+
             outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
              # Get the validation loss.
             if loss_fn == 'mae':
@@ -145,22 +117,26 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     print(f"Scheduler: {SCHD}")
     print(f"Loss function: {LOSSFN}")
     print("=============================================================")
-    wandb.init(project="catbert-ft", name=run_name, dir='./log')
+    wandb.init(project="catbert-ft-multi", name=run_name, dir='./log')
                #dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
     
     #=========================================================================
     # Prepare data and model for training
     #=========================================================================   
     # Initialize training dataset
-    train_dataset = FinetuneDataset(texts = df_train["text"].values,
-                              targets = df_train["target"].values,
-                              tokenizer = tokenizer,
-                              seq_len= tokenizer.model_max_length)
+    train_dataset = MultimodalDataset(texts_sys = df_train['system'].values,
+                                   texts_ads = df_train['adsorbate'].values,
+                                   texts_bulk = df_train['bulk'].values,
+                                   targets = df_train["target"].values,
+                                   tokenizer = tokenizer,
+                                   seq_len= tokenizer.model_max_length)
     # Initialize validation dataset
-    val_dataset = FinetuneDataset(texts = df_val["text"].values,
-                            targets = df_val["target"].values,
-                            tokenizer = tokenizer,
-                            seq_len= tokenizer.model_max_length)
+    val_dataset = MultimodalDataset(texts_sys = df_val['system'].values,
+                                   texts_ads = df_val['adsorbate'].values,
+                                   texts_bulk = df_val['bulk'].values,
+                                   targets = df_val["target"].values,
+                                   tokenizer = tokenizer,
+                                   seq_len= tokenizer.model_max_length)
     # Create training dataloader
     train_data_loader = DataLoader(train_dataset, batch_size = TRAIN_BS,
                                    shuffle = True, num_workers = 2)
@@ -175,8 +151,8 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     # Get the AdamW optimizer
     if params.get("optimizer") == "AdamW":
         optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.01) #originally 1e-6
-    elif params.get("optimizer") == "gLLRD":
-        optimizer, _ = roberta_base_AdamW_grouped_LLRD(model, LR)
+    # elif params.get("optimizer") == "gLLRD":
+    #     optimizer, _ = roberta_base_AdamW_grouped_LLRD(model, LR)
     # Calculate the number of training steps (this is used by scheduler).
     # training steps = [number of batches] x [number of epochs].
     train_steps = int(len(df_train) / TRAIN_BS * EPOCHS)    

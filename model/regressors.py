@@ -1,7 +1,8 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from transformers import RobertaModel, RobertaConfig
+import copy
+# from transformers import RobertaModel, RobertaConfig
 
 class MyModel(nn.Module):
             
@@ -169,4 +170,23 @@ class MyModel_ConcatLast4Layers(nn.Module):
                                              # Shape is [batch_size, seq_len, 768*4]
         first_token = concat[:, 0, :]        # Take only 1st token, result in shape [batch_size, 768*4]
         output = self.regressor(first_token) # Shape is [batch_size, 1]    
-        return output     
+        return output    
+
+
+class MultimodalRegressor(nn.Module):
+    def __init__(self, backbone_model):
+        super().__init__()
+        self.transformers = nn.ModuleList([copy.deepcopy(backbone_model) for _ in range(3)])
+        self.emb_dim = backbone_model.embeddings.word_embeddings.embedding_dim
+        self.regressors = nn.ModuleList([nn.Linear(self.emb_dim, 1) for _ in range(3)])
+
+    def forward(self, section_input_ids, section_attention_mask):
+        # section_input_ids is a torch tensor of shape [batch_size, 3, seq_len]
+        raw_outputs = []
+        for i in range(3):
+            raw_output = self.transformers[i](section_input_ids[i], section_attention_mask[i])
+            pooler = raw_output["pooler_output"]  # Shape is [batch_size, emb_dim]
+            output = self.regressors[i](pooler)  # Shape is [batch_size, 1]
+            raw_outputs.append(output)
+        output = torch.sum(torch.cat(raw_outputs, dim=1), dim=1, keepdim=True)
+        return output 

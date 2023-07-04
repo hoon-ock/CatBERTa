@@ -184,9 +184,16 @@ if __name__ == '__main__':
 
     # ================= 2. Load model and tokenizer ======================
     if args.base:
-        model = RobertaForMaskedLM.from_pretrained('roberta-base')
-        #max_len = model.roberta.embeddings.position_embeddings.num_embeddings
-        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
+        roberta_config = RobertaConfig.from_dict(model_config)
+        model = RobertaForMaskedLM.from_pretrained('roberta-base') 
+                                                   #config=roberta_config, 
+                                                   #ignore_mismatched_sizes=True)
+        # breakpoint()
+        # max_len = roberta_config.max_position_embeddings - 2
+        # print('Max length:', max_len)
+        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base') 
+                                                         #max_len=max_len)
+        # breakpoint()
     else:
         roberta_config = RobertaConfig.from_dict(model_config)
         model = RobertaForMaskedLM(roberta_config)

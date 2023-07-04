@@ -4,7 +4,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt 
 from torch.utils.data import DataLoader
 from model.classifiers import BinaryClassifier, MultiLabelClassifier
-from model.dataset import PretrainDataset
+from model.dataset import ClassDataset
 import wandb
 from tqdm import tqdm
 import datetime
@@ -107,14 +107,14 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
     # Prepare data and model for training
     #=========================================================================   
     # Initialize training dataset
-    train_dataset = PretrainDataset(texts = df_train["text"].values,
+    train_dataset = ClassDataset(texts = df_train["text"].values,
                                     ads_size = df_train["ads_size"].values,
                                     ads_class = df_train["ads_class"].values,
                                     bulk_class = df_train["bulk_class"].values,
                                     tokenizer = tokenizer,
                                     seq_len= tokenizer.model_max_length)
     # Initialize validation dataset
-    val_dataset = PretrainDataset(texts = df_val["text"].values,
+    val_dataset = ClassDataset(texts = df_val["text"].values,
                                   ads_size = df_val["ads_size"].values,
                                   ads_class = df_val["ads_class"].values,
                                   bulk_class = df_val["bulk_class"].values,
