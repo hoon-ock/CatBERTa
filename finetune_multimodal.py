@@ -99,8 +99,7 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 # save config files for reference
 shutil.copy(ft_config_path, os.path.join(save_dir, "ft_config.yaml"))
-if pt_ckpt_path != 'roberta-base':
-    shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(save_dir, "roberta_config.yaml"))
+shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(save_dir, "roberta_config.yaml"))
 
 # run finetuning
 run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name= run_name)

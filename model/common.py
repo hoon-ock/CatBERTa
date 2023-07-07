@@ -1,10 +1,6 @@
 import torch, os, shutil
 from transformers import (RobertaConfig, RobertaModel)
-from model.regressors import (MyModel, MyModel2, 
-                              MyModel_MLP, MyModel_MLP2,
-                              MyModel_AttnHead, 
-                              MyModel_ConcatLast4Layers,
-                              MultimodalRegressor)
+from model.regressors import *
 from model.classifiers import MultiLabelClassifier
 
 def backbone_wrapper(backbone, head_type):
@@ -28,6 +24,10 @@ def backbone_wrapper(backbone, head_type):
         model = MultiLabelClassifier(backbone)
     elif head_type == "multimodal":
         model = MultimodalRegressor(backbone)
+    elif head_type == "multimodal2":
+        model = MultimodalRegressor2(backbone)
+    elif head_type == "multitransformer":
+        model = MultiTransformer(backbone)
     else:
         raise ValueError(f"Unknown model_head: {head_type}") 
     
