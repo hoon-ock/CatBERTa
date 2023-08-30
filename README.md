@@ -26,6 +26,7 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
 1. Clone the CatBERTa repository:
 
    ```bash
+   # clone the source code of CatBERTa
    git clone https://github.com/hoon-ock/CatBERTa.git
    cd CatBERTa
    
