@@ -30,7 +30,8 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
    ```bash
    git clone https://github.com/your-username/CatBERTa.git
    cd CatBERTa
+   
+![framework_github](https://github.com/hoon-ock/CatBERTa/assets/93333323/cafeb4de-b859-4b2e-abb1-f5e56ac0e22f)
 
-
-![framework](https://github.com/hoon-ock/CatBERTa/assets/93333323/c99e0308-e9d9-4fa1-9016-d14782066f7f)
-
+### Contact
+For questions or support, feel free to contact us at [jock@andrew.cmu.edu].
