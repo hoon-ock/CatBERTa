@@ -1,17 +1,20 @@
-# CatBERTa: Large Language Model for Catalyst Property Prediction
+# CatBERTa: Text-Based Catalyst Energy Prediction
 
-# CatBERTa
+CatBERTa is a state-of-the-art energy prediction model designed for efficient catalyst screening. It addresses the challenge of predicting adsorption energy, a critical property in catalyst reactivity, without relying on precise atomic coordinates or complex graph representations. Instead, CatBERTa leverages the power of Transformer-based language models to process human-interpretable textual inputs and predict adsorption energies accurately.
 
-CatBERTa is an extension of the RoBERTa model, optimized for tasks involving [describe tasks or use-cases where CatBERTa is useful, e.g., sentiment analysis, text classification, etc.]. It leverages the power of transformer-based architectures to achieve state-of-the-art performance in [mention any benchmarks, competitions, or evaluations CatBERTa excels at].
+## Key Features
 
-## Features
-
-- [List key features or improvements of CatBERTa over the base RoBERTa model]
-- [Highlight any unique selling points or strengths]
+- Predicts adsorption energy, a key property in catalyst reactivity, using textual inputs.
+- Built on a pretrained Transformer encoder, offering the benefits of transfer learning.
+- Processes human-interpretable text to embed target features for energy prediction.
+- Analyzes attention scores to reveal how CatBERTa focuses on adsorbates, bulk composition, and interacting atoms.
+- Explores the effectiveness of interacting atoms as descriptors for adsorption configurations.
+- Achieves a mean absolute error (MAE) of 0.75 eV, comparable to vanilla Graph Neural Networks (GNNs).
+- Enhances energy difference predictions by effectively canceling out systematic errors for chemically similar systems.
 
 ## Getting Started
 
-These instructions will help you set up and use CatBERTa for your NLP tasks. For detailed information and examples, refer to the [documentation](link-to-documentation).
+Follow these steps to start using CatBERTa for predicting catalyst adsorption energy:
 
 ### Prerequisites
 
@@ -22,7 +25,7 @@ These instructions will help you set up and use CatBERTa for your NLP tasks. For
 
 ### Installation
 
-1. Clone the repository:
+1. Clone the CatBERTa repository:
 
    ```bash
    git clone https://github.com/your-username/CatBERTa.git
@@ -30,8 +33,4 @@ These instructions will help you set up and use CatBERTa for your NLP tasks. For
 
 
 ![framework](https://github.com/hoon-ock/CatBERTa/assets/93333323/c99e0308-e9d9-4fa1-9016-d14782066f7f)
-
-
-
-Please replace `[...]` placeholders with actual information, URLs, and details relevant to your project. Make sure to provide comprehensive instructions, explanations, and examples to help users get started with using CatBERTa.
 
