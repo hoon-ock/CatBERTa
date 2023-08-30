@@ -52,23 +52,22 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
 
 
 
-if __name__ == '__main__':
-    # ========================== INPUT ============================
-    ckpt_dir = "Path/to/checkpoint" #"checkpoint/finetune/base-sys-ft_0712_1213" 
-    ckpt_name = ckpt_dir.split('/')[-1]
-    val_data_path = "data/df_val.pkl" 
-    tknz_path = 'roberta-base' # or custom tokenizer
-
-    # ================== 2. Load Data ==================                               
-    df_val = pd.read_pickle(val_data_path)   
-    # =============================================================
+if __name__ == '__main__':                         
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
     parser.add_argument('--target', choices=['energy', 'embed', 'attn'], default='energy',
                     help='Prediction target (default: energy)')
     parser.add_argument('--base', action='store_true', help='Pretrain with roberta-base model') 
+    parser.add_argument('--ckpt_dir', required=True, help='Path to checkpoint directory')
+    parser.add_argument('--data_path', required=True, help='Path to data directory')
     args = parser.parse_args()
+    
+    ckpt_dir = args.ckpt_dir
+    data_path = args.data_path
+    ckpt_name = ckpt_dir.split('/')[-1]
+    data = pd.read_pickle(data_path)
     pred = args.target
+    
     if pred == 'energy':
         print('--------------- Energy prediction mode! ---------------')
     elif pred == 'embed':
@@ -101,7 +100,7 @@ if __name__ == '__main__':
     # ================== 1. Load Model and Tokenizer ==================
     backbone = RobertaModel.from_pretrained('roberta-base')
     max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path)
+    tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
     tokenizer.model_max_length = max_len
     if pred == 'energy':
         # To generate energy, we need to load the model with the head.
@@ -117,12 +116,12 @@ if __name__ == '__main__':
         model = backbone                        
 
     # ================== 2. Obtain Predictions ==================
-    predictions = predict_fn(df_val, model, tokenizer, device, mode=pred)
+    predictions = predict_fn(data, model, tokenizer, device, mode=pred)
     
     # save predictions as dictionary with id as key
     results = {}
-    for i in range(len(df_val)):
-        results[df_val.iloc[i]['id']] = predictions[i]
+    for i in range(len(data)):
+        results[data.iloc[i]['id']] = predictions[i]
     
     save_dir = f"results/{pred}"
     if not os.path.exists(save_dir):

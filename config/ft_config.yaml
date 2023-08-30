@@ -10,7 +10,7 @@ params:
   loss_fn: mae     # mae, rmse, L2, smooth_l1
 
 paths:
-  train_data: "data/df_train.pkl" 
-  val_data: "data/df_val.pkl" 
+  train_data: "data/df_train_str4.pkl" 
+  val_data: "data/df_val_str4.pkl" 
   pt_ckpt: "roberta-base" # or path to checkpoint
   tknz: "roberta-base" # or custom tokenizer
