@@ -255,6 +255,6 @@ if __name__ == "__main__":
         print("================= " + model + " =================")
         print("----------------- Splits -----------------")
         Results.plot_val_splits(model, number)
-        # print("------------ Energy Difference ------------")
-        # Results.plot_energy_difference(model, number)
+        print("------------ Energy Difference ------------")
+        Results.plot_energy_difference(model, number)
 
