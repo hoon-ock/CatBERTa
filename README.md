@@ -33,8 +33,7 @@ Before you begin, ensure you have the following prerequisites installed:
    # clone the source code of CatBERTa
    git clone https://github.com/hoon-ock/CatBERTa.git
    cd CatBERTa
-   
-
+   ```   
 
 ### Dataset
 
