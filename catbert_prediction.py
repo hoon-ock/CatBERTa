@@ -1,10 +1,9 @@
 import torch
-import numpy as np
 import pandas as pd
-from transformers import RobertaModel, RobertaTokenizerFast, RobertaConfig
+from transformers import RobertaModel, RobertaTokenizerFast
 from tqdm import tqdm
-from model.dataset import FinetuneDataset #, PretrainDataset
-from model.common import backbone_wrapper, checkpoint_loader
+from model.dataset import FinetuneDataset 
+from model.common import * 
 from torch.utils.data import DataLoader
 import os, yaml, pickle
 
@@ -51,33 +50,23 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
 
     return predictions
 
-def section_text_integrator(data, col_list):
-    df = data.copy()
-    df['text'] = df[col_list].apply(lambda x: ' '.join(x), axis=1)
-    return df
+
 
 if __name__ == '__main__':
     # ========================== INPUT ============================
-    ckpt_dir = "checkpoint/finetune/base-sys-ft_0712_1213" #pretrain/pt_0625_2026"
+    ckpt_dir = "Path/to/checkpoint" #"checkpoint/finetune/base-sys-ft_0712_1213" 
     ckpt_name = ckpt_dir.split('/')[-1]
-    #val_data_path = "/home/jovyan/CATBERT/data/df_val.pkl" #paths["val_data"]
-    tknz_path = 'roberta-base' #paths["tknz"]
+    val_data_path = "data/df_val.pkl" 
+    tknz_path = 'roberta-base' # or custom tokenizer
+
     # ================== 2. Load Data ==================                               
-    #df_val = pd.read_pickle(val_data_path)
-    df_val = pd.read_pickle("data/df_val_multi.pkl")
-    df_val['text'] = df_val['system']
-    #df_val['text'] = df_val['string2'] #.apply(lambda x: f"{x.split('</s>')[0]}</s>{x.split('</s>')[1]}")
-    #df_val['text'] = df_val['text'].apply(lambda x: x.replace('*', ''))
-    #df_val.rename(columns={'string2': 'text'}, inplace=True)
-    #df_val = section_text_integrator(df_val, ['system'])
-    # df_val = df_val.sample(5000, random_state=17) # for debugging
-    breakpoint()
+    df_val = pd.read_pickle(val_data_path)   
     # =============================================================
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
     parser.add_argument('--target', choices=['energy', 'embed', 'attn'], default='energy',
                     help='Prediction target (default: energy)')
-    parser.add_argument('--base', action='store_true', help='Pretrain with base model') 
+    parser.add_argument('--base', action='store_true', help='Pretrain with roberta-base model') 
     args = parser.parse_args()
     pred = args.target
     if pred == 'energy':
@@ -90,63 +79,42 @@ if __name__ == '__main__':
         print('Warning: This mode is not fully tested yet!')
     # ================== 0. Load Checkpoint and Configs ==================
     if args.base:
+        # this represents a roberta-base encoder without the regression head
+        # thus, it's not for energy prediction
         tag = 'base'
-        # val_data_path = "/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k_label.pkl"
         if pred == 'energy':
             raise ValueError('Cannot predict energy with base model!')
     
     else:
+        # this represents a roberta-base encoder with the regression head
+        # the checkpoint should be loaded on the whole model
         tag = ckpt_name
         # Load Training Config
-        if 'pt' in ckpt_name:
-            print('This is a pretraining checkpoint!')
-            if pred == 'energy':
-                raise ValueError('Cannot predict energy with base model!')
-            train_config = os.path.join(ckpt_dir, "pt_config.yaml")
-
-        elif 'ft' in ckpt_name:
-            train_config = os.path.join(ckpt_dir, "ft_config.yaml")
-
-        paths = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['paths']
-        
+        train_config = os.path.join(ckpt_dir, "ft_config.yaml")
         head = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['params']['model_head']
-        # Load Model Config
-        # if 'base' in ckpt_name:
-        #     roberta_config = RobertaConfig.from_pretrained('roberta-base')
-        # else:
-        #     model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-        #     roberta_config = RobertaConfig.from_dict(model_config)
         # Load Checkpoint
         checkpoint = os.path.join(ckpt_dir, "checkpoint.pt")
+
     # Set Device 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device("cpu") # for debugging
-
+    
     # ================== 1. Load Model and Tokenizer ==================
-    if args.base:
-        backbone = RobertaModel.from_pretrained('roberta-base')
-        max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
-        tokenizer.model_max_length = max_len
-        model = backbone
-    else:
-        #backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-        backbone = RobertaModel.from_pretrained('roberta-base')
-        max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-        # model.load_state_dict(torch.load(checkpoint))
-        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path)
-        tokenizer.model_max_length = max_len
-        if pred == 'energy':
-            # To generate energy, we need to load the model with the head.
-            # So, we need to load the model from the checkpoint on the whole model.
-            model = backbone_wrapper(backbone, head)
-            #breakpoint()
-            checkpoint_loader(model, checkpoint, load_on_roberta=False)
-        elif pred == 'embed' or pred == 'attn':
-            # To generate embeddings/attention, we need to load the model without the head.
-            # So, we need to load the model from the checkpoint only on the backbone.
+    backbone = RobertaModel.from_pretrained('roberta-base')
+    max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path)
+    tokenizer.model_max_length = max_len
+    if pred == 'energy':
+        # To generate energy, we need to load the model with the head.
+        # So, we need to load the model from the checkpoint on the whole model.
+        model = backbone_wrapper(backbone, head)
+        checkpoint_loader(model, checkpoint, load_on_roberta=False)
+    
+    elif pred == 'embed' or pred == 'attn':
+        # To generate embeddings/attention, we need to load the model without the head.
+        # So, we need to load the model from the checkpoint only on the backbone.
+        if not args.base:
             checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
-            model = backbone                        
+        model = backbone                        
 
     # ================== 2. Obtain Predictions ==================
     predictions = predict_fn(df_val, model, tokenizer, device, mode=pred)
