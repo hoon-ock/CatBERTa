@@ -26,24 +26,26 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
 1. Clone the CatBERTa repository:
 
    ```bash
-   git clone https://github.com/your-username/CatBERTa.git
+   git clone https://github.com/hoon-ock/CatBERTa.git
    cd CatBERTa
    
 ![framework_github](https://github.com/hoon-ock/CatBERTa/assets/93333323/cafeb4de-b859-4b2e-abb1-f5e56ac0e22f)
 
 ### Dataset
 
-1. Structural data
+1. Preprocessed textual data
+
+   The `data` folder houses the preprocessed textual data derived from the Open Catalyst 2020 dataset. Due to storage limitations, we offer a small subset of our training and validation data as an illustrative example. This subset showcases the format and structure of the data that CatBERTa utilizes for energy prediction.
+
+If you are interested in accessing the full training and validation dataset for more comprehensive experimentation, please don't hesitate to reach out to us.
+
+2. Structural data
   
    The **Open Catalyst Project** dataset serves as a crucial source of textual generation for CatBERTa. This comprehensive dataset comprises a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems, each accompanied by their corresponding energies.
 
 To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository: [Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
 
-2. Preprocessed textual data
 
-   The `data` folder houses the preprocessed textual data derived from the Open Catalyst 2020 dataset. Due to storage limitations, we offer a small subset of our training and validation data as an illustrative example. This subset showcases the format and structure of the data that CatBERTa utilizes for energy prediction.
-
-If you are interested in accessing the full training and validation dataset for more comprehensive experimentation, please don't hesitate to reach out to us.
 
 ### Checkpoints
 
