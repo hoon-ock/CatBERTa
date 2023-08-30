@@ -134,7 +134,7 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     LR = params["lr"] if params.get("lr") else 1e-6 # Learning rate
     WRMUP = params["warmup_steps"] if params.get("warmup_steps") else 0 # warmup step for scheduler
     SCHD = params["scheduler"] if params.get("scheduler") else "linear" # scheduler type
-    #HEAD = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
+    HEAD = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
     LOSSFN = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
     
     # ========================================================================
@@ -144,7 +144,7 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     print("=============================================================")
     print(f"{run_name} is launched")
     print("=============================================================")
-    print(f"Model head: {params['model_head']}")
+    print(f"Model head: {HEAD}")
     print(f"Epochs: {EPOCHS}")
     print(f"Early stopping threshold: {EARLY_STOP_THRESHOLD}")
     print(f"Training batch size: {TRAIN_BS}")
@@ -155,7 +155,6 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     print(f"Loss function: {LOSSFN}")
     print("=============================================================")
     wandb.init(project="catbert-ft", name=run_name, dir='./log')
-               #dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
     
     #=========================================================================
     # Prepare data and model for training
@@ -230,5 +229,3 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
 
     print(f"===== Training Termination =====")        
     wandb.finish()
-
-

@@ -1,8 +1,23 @@
 import torch, os, shutil
 from transformers import (RobertaConfig, RobertaModel)
 from model.regressors import *
-from model.interaction_regressors  import *
-from model.classifiers import MultiLabelClassifier
+
+def section_text_integrator(data, col_list):
+    '''
+    Integrates the text from different sections into one column.
+    
+    Example:
+        data = pd.DataFrame({'text1': ['a', 'b', 'c'], 'text2': ['d', 'e', 'f']})
+        col_list = ['text1', 'text2']
+        section_text_integrator(data, col_list)
+        data = pd.DataFrame({'text1': ['a', 'b', 'c'], 'text2': ['d', 'e', 'f'], 'text': ['a d', 'b e', 'c f']})
+    '''
+    df = data.copy()
+    df['text'] = df[col_list].apply(lambda x: ' '.join(x), axis=1)
+    return df
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters())
 
 def backbone_wrapper(backbone, head_type):
     '''
@@ -12,48 +27,37 @@ def backbone_wrapper(backbone, head_type):
     '''
 
     if head_type == "pooler":
-        model = MyModel(backbone) 
-    elif head_type == "mlp":
-        model = MyModel_MLP(backbone)
-    elif head_type == "mlp2":
-        model = MyModel_MLP2(backbone)
-    elif head_type == "attnhead":
-        model = MyModel_AttnHead(backbone)
-    elif head_type == "concatlayer":
-        model = MyModel_ConcatLast4Layers(backbone)
-    elif head_type == "multilabel":
-        model = MultiLabelClassifier(backbone)
-    elif head_type == "multimodal":
-        model = MultimodalRegressor(backbone)
-    elif head_type == "multimodal2":
-        model = MultimodalRegressor2(backbone)
-    elif head_type == "multimodal3":
-        model = MultimodalRegressor3(backbone)
-    elif head_type == "multimodal4":
-        model = MultimodalRegressor4(backbone)
-    elif head_type == "multitransformer":
-        model = MultiTransformer(backbone)
-    elif head_type == "interaction":
-        model = InteractionRegressor(backbone)
+        model = PoolerRegressor(backbone) 
     elif head_type == "regressor1":
         model = MyRegressor1(backbone)
     elif head_type == "regressor2":
         model = MyRegressor2(backbone)
     elif head_type == "regressor3":
         model = MyRegressor3(backbone)
-    elif head_type == "y_model":
-        model = YModel(backbone)
+
     else:
         raise ValueError(f"Unknown model_head: {head_type}") 
     
     return model
 
+
 def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
     '''
-    Load checkpoint to model
-    model: RobertaModel (base or with head)
-    checkpoint_path: path to checkpoint
-    load_on_roberta: whether to load checkpoint on roberta_model or the whole model with head
+    Load checkpoint weights into the model.
+    
+    Args:
+        model (RobertaModel): The model (base or with head) to load the checkpoint weights into.
+        checkpoint_path (str): Path to the checkpoint file.
+        load_on_roberta (bool): If True, load the checkpoint on the Roberta base model.
+                               If False, load the checkpoint on the whole model with the head.
+
+    Notes:
+        - If `load_on_roberta` is True, the checkpoint should come from pretraining
+          and the Roberta base model's state_dict will be used for matching keys.
+        - If `load_on_roberta` is False, the checkpoint is loaded onto the whole model
+          including the head. Matching keys will be used for transferring the weights.
+        - The `strict` parameter of `load_state_dict` is set to False to allow partial loading
+          in case of mismatched layers.
     '''
     model_dict = model.state_dict()
     state_dict = torch.load(checkpoint_path)
@@ -68,12 +72,11 @@ def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
     else:
         # this is option is to continue training on the whole model with head
         matching_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
-    # breakpoint()
+
     if matching_state_dict.keys() == model_dict.keys():
         print('All keys matched!')
     elif len(matching_state_dict.keys()) == 0:
-        # raise error
+
         raise ValueError(f"Unknown model_head: No matching keys!")
-    #breakpoint()
+
     model.load_state_dict(matching_state_dict, strict=False)
-    #return model

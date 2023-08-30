@@ -4,13 +4,13 @@ params:
   lr: 1.0e-6
   early_stop_threshold: 20
   scheduler: linear # constant, linear
-  warmup_steps: 0 #6500
+  warmup_steps: 0 
   optimizer: gLLRD  # AdamW, gLLRD
-  model_head: pooler    # pooler, mlp, mlp2, attnhead, concatlayer
+  model_head: pooler    # pooler, regressor1~3
   loss_fn: mae     # mae, rmse, L2, smooth_l1
 
 paths:
-  train_data: "data/df_train.pkl" #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/train_2nd/train_all.pkl"
-  val_data: "data/df_val.pkl" #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k.pkl"
-  pt_ckpt: "roberta-base" #"checkpoint/pretrain/300k-2nd-int-mlm-pt_0810_2252" #"checkpoint/finetune/surf-comp-1st-int-dist-2nd-int-RP-schd-ft_0805_0233"
-  tknz: "roberta-base" #tokenizer or tokenizer_mol
+  train_data: "data/df_train.pkl" 
+  val_data: "data/df_val.pkl" 
+  pt_ckpt: "roberta-base" # or path to checkpoint
+  tknz: "roberta-base" # or custom tokenizer
