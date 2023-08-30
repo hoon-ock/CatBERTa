@@ -34,12 +34,15 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
 ![framework_github](https://github.com/hoon-ock/CatBERTa/assets/93333323/cafeb4de-b859-4b2e-abb1-f5e56ac0e22f)
 
 2. Dataset
-   The **Open Catalyst Project** dataset provides the foundation for training and evaluating CatBERTa. This dataset is a valuable resource containing essential information for catalyst screening and reactivity prediction. The dataset includes a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems with their associated energies. To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository:
 
-[Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
+The **Open Catalyst Project** dataset provides the foundation for training and evaluating CatBERTa. This dataset is a valuable resource containing essential information for catalyst screening and reactivity prediction. The dataset includes a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems with their associated energies. 
+
+To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository: [Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
 
    
 4. Checkpoints
+
+For access to the model checkpoints, please reach out to us through jock@andrew.cmu.edu
 
 ### Contact
 For questions or support, feel free to contact us at [jock@andrew.cmu.edu].
