@@ -3,6 +3,7 @@ from pathlib import Path
 from model.dataset import stratified_kfold 
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 # from transformers import AdamW
 from tqdm import tqdm 
 import wandb
@@ -16,6 +17,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 def mlm(tensor, mask_token_id):
     rand = torch.rand(tensor.shape) #[0,1]
     mask_arr = (rand < 0.15) * (tensor > 2)
+    # breakpoint()
     for i in range(tensor.shape[0]):
         selection = torch.flatten(mask_arr[i].nonzero())
         tensor[i, selection] = mask_token_id #tokenizer.mask_token_id
@@ -40,6 +42,7 @@ def get_encodings_from_texts(texts, tokenizer):
     input_ids = torch.cat(input_ids)
     mask = torch.cat(mask)
     labels = torch.cat(labels)
+    # breakpoint()
     return {'input_ids': input_ids, 
             'attention_mask': mask, 
             'labels': labels}
@@ -56,6 +59,7 @@ def train(model, dataloader, optim, device):
         attention_mask = batch['attention_mask'].to(device)
         labels = batch['labels'].to(device)
         outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+        # breakpoint()
         loss = outputs.loss
         loss.backward()
         optim.step()
@@ -123,12 +127,14 @@ def run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name
     # ===============================================
     model.to(device)
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
+    scheduler = ReduceLROnPlateau(optim, 'min', patience=5, factor=0.5)
     best_loss = 999
     early_stopping_counter = 0
     for epoch in range(1, num_epochs+1):
         train_loss = train(model, train_dataloader, optim, device)
         val_loss = validate(model, val_dataloader, device)
         loss = val_loss
+        scheduler.step(val_loss)
         wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'lr': lr})
         if loss < best_loss:
             best_loss = loss
@@ -170,36 +176,58 @@ if __name__ == '__main__':
     val_data_path = paths["val_data"]
     rbt_config_path = paths["roberta_config"]
     tknz_path = paths["tknz"]
-    model_config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader)   
+    # model_config = yaml.load(open(rbt_config_path, 'r'), Loader=yaml.FullLoader)   
     params = yaml.load(open(pt_config_path, "r"), Loader=yaml.FullLoader)['params']
    
     # ================= 1. Load data ======================
     df_train = pd.read_pickle(train_data_path) #.sample(1, random_state=42)
     df_val = pd.read_pickle(val_data_path) #.sample(1, random_state=42)
+
+    ################### temporary ###################
+    df_train.rename(columns={'string2': 'text'}, inplace=True)
+    df_val.rename(columns={'string2': 'text'}, inplace=True)
+    # df_train['text'] = df_train['text'].apply(lambda x: x.replace('*', ''))
+    # df_val['text'] = df_val['text'].apply(lambda x: x.replace('*', ''))
+    # df_train = df_train.sample(500000, random_state=42)
+    # breakpoint()
+    ##################################################
+
     if args.debug:
-        df_train = df_train.sample(1, random_state=42)
+        df_train = df_train.sample(4, random_state=42)
         df_val = df_val.sample(2, random_state=42)
     print("Training data size: " + str(df_train.shape[0]))
     print("Validation data size : " + str(df_val.shape[0]))
 
     # ================= 2. Load model and tokenizer ======================
-    if args.base:
-        roberta_config = RobertaConfig.from_dict(model_config)
-        model = RobertaForMaskedLM.from_pretrained('roberta-base') 
-                                                   #config=roberta_config, 
-                                                   #ignore_mismatched_sizes=True)
-        # breakpoint()
-        # max_len = roberta_config.max_position_embeddings - 2
-        # print('Max length:', max_len)
-        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base') 
-                                                         #max_len=max_len)
-        # breakpoint()
-    else:
-        roberta_config = RobertaConfig.from_dict(model_config)
-        model = RobertaForMaskedLM(roberta_config)
-        max_len = model.roberta.embeddings.position_embeddings.num_embeddings-2
-        print('Max length:', max_len)
-        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+    # if args.base:
+    #     roberta_config = RobertaConfig.from_dict(model_config)
+    #     model = RobertaForMaskedLM.from_pretrained('roberta-base') 
+    #                                                #config=roberta_config, 
+    #                                                #ignore_mismatched_sizes=True)
+    #     # breakpoint()
+    #     # max_len = roberta_config.max_position_embeddings - 2
+    #     # print('Max length:', max_len)
+    #     # tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path) 
+    #                                                      #max_len=max_len)
+    #     # breakpoint()
+    # else:
+    #     roberta_config = RobertaConfig.from_dict(model_config)
+    #     model = RobertaForMaskedLM(roberta_config)
+    #     max_len = model.roberta.embeddings.position_embeddings.num_embeddings-2
+    #     print('Max length:', max_len)
+
+    model = RobertaForMaskedLM.from_pretrained('roberta-base')
+    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path)
+    tokenizer.model_max_length = model.roberta.embeddings.position_embeddings.num_embeddings-2
+    # tokenizer.model_max_length = 256 #model.roberta.embeddings.position_embeddings.num_embeddings-2
+    # roberta_config = RobertaConfig.from_pretrained('roberta-base')
+    # roberta_config.vocab_size = tokenizer.vocab_size
+    # roberta_config.max_position_embeddings = 258
+    # model = RobertaForMaskedLM.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+    # breakpoint()
+    
+    
+
     # breakpoint()
     # ================= 4. Set device ======================   
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -215,7 +243,7 @@ if __name__ == '__main__':
         print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3,1), 'GB')    
     
     # ================= 5. Run pretraining ======================
-    run_name = 'mlm-pt'+datetime.now().strftime("_%m%d_%H%M")
+    run_name = '300k-2nd-int-mlm-pt'+datetime.now().strftime("_%m%d_%H%M")
     if args.debug:
         run_name = 'debug'+datetime.now().strftime("_%m%d_%H%M")
     if args.base:
@@ -227,8 +255,8 @@ if __name__ == '__main__':
         os.makedirs(save_dir)
     # save config files for reference
     shutil.copy(pt_config_path, os.path.join(save_dir, "pt_config.yaml"))
-    if not args.base:
-        shutil.copy(rbt_config_path, os.path.join(save_dir, "roberta_config.yaml"))
+    # if not args.base:
+    #     shutil.copy(rbt_config_path, os.path.join(save_dir, "roberta_config.yaml"))
 
     # run pretraining
     run_pretraining(df_train, df_val, params, model, tokenizer, device, run_name)

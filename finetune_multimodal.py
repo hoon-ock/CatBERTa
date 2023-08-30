@@ -18,6 +18,17 @@ def count_parameters(model):
     """
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+def freeze_layers(model, freeze_layers):
+    for name, param in model.named_parameters():
+        if freeze_layers == 'all':
+            param.requires_grad = False
+        else:
+            if name in freeze_layers:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+
+
 # ============== 0. Read pretrain config file ======================
 ft_config_path = "config/ft_config.yaml"
 paths = yaml.load(open(ft_config_path, "r"), Loader=yaml.FullLoader)['paths']
@@ -30,46 +41,53 @@ print("This model is based on: ", pt_ckpt_path.split('/')[-1])
 # ================= 1. Load data ======================
 df_train = pd.read_pickle(train_data_path)
 df_val = pd.read_pickle(val_data_path)
+df_train['bulk'] = df_train[['bulk1', 'bulk2']].apply(lambda x: ' '.join(x), axis=1)
+df_val['bulk'] = df_val[['bulk1', 'bulk2']].apply(lambda x: ' '.join(x), axis=1)
 if args.debug:
     df_train = df_train.sample(4, random_state=42)
     df_val = df_val.sample(4, random_state=42)
+    df_train['bulk'] = df_train[['bulk1', 'bulk2']].apply(lambda x: ' '.join(x), axis=1)
+    df_val['bulk'] = df_val[['bulk1', 'bulk2']].apply(lambda x: ' '.join(x), axis=1)
 print("Training data size: " + str(df_train.shape[0]))
 print("Validation data size : " + str(df_val.shape[0]))
 
 # ================= 2. Load model and tokenizer ======================
 params = yaml.load(open(ft_config_path, "r"), Loader=yaml.FullLoader)['params']
 # Load pre-trained backbone model
-if pt_ckpt_path == 'roberta-base':
-    config = yaml.load(open('config/roberta_config.yaml', 'r'), Loader=yaml.FullLoader)
-    roberta_config = RobertaConfig.from_dict(config)
-    backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
-    max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-    tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', model_max_length=max_len)
+# if pt_ckpt_path == 'roberta-base':
+#     config = yaml.load(open('config/roberta_config.yaml', 'r'), Loader=yaml.FullLoader)
+#     roberta_config = RobertaConfig.from_dict(config)
+#     backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+#     max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+#     tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', model_max_length=max_len)
 
-else:
-    config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)
-    roberta_config = RobertaConfig.from_dict(config)
-    backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+# else:
+#     config = yaml.load(open(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), 'r'), Loader=yaml.FullLoader)
+#     roberta_config = RobertaConfig.from_dict(config)
+#     backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
     
-    max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-    tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+#     max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+#     tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
 
-    backbone_base = copy.deepcopy(backbone)
-    checkpoint_loader(backbone, os.path.join(pt_ckpt_path, 'checkpoint.pt'), load_on_roberta=True)
-    ############### checkpoint loading sanity check! ###############
-    base_emb = backbone_base.embeddings.word_embeddings.weight
-    backbone_emb = backbone.embeddings.word_embeddings.weight
-    if torch.equal(base_emb, backbone_emb):
-        print("Checkpoint loading failed!")
-        raise ValueError
-    del backbone_base, base_emb, backbone_emb
+    # backbone_base = copy.deepcopy(backbone)
+    # checkpoint_loader(backbone, os.path.join(pt_ckpt_path, 'checkpoint.pt'), load_on_roberta=True)
+    # ############### checkpoint loading sanity check! ###############
+    # base_emb = backbone_base.embeddings.word_embeddings.weight
+    # backbone_emb = backbone.embeddings.word_embeddings.weight
+    # if torch.equal(base_emb, backbone_emb):
+    #     print("Checkpoint loading failed!")
+    #     raise ValueError
+    # del backbone_base, base_emb, backbone_emb
     ###############################################################
+
+backbone = RobertaModel.from_pretrained('roberta-base')
+checkpoint_loader(backbone, os.path.join(pt_ckpt_path, 'checkpoint.pt'), load_on_roberta=True)
+max_len = backbone.embeddings.position_embeddings.num_embeddings-2
+tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', model_max_length=max_len)
 
 # wrap with a regression head
 model = backbone_wrapper(backbone, params['model_head'])
-# breakpoint()
 print("Max length: ", tokenizer.model_max_length)
-
 # if start training from pretrained header
 # model.load_state_dict(torch.load(ckpt_for_further_train)) #torch.load(ckpt_path)
 
@@ -99,7 +117,7 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 # save config files for reference
 shutil.copy(ft_config_path, os.path.join(save_dir, "ft_config.yaml"))
-shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(save_dir, "roberta_config.yaml"))
+# shutil.copy(os.path.join(pt_ckpt_path, 'roberta_config.yaml'), os.path.join(save_dir, "roberta_config.yaml"))
 
 # run finetuning
 run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name= run_name)

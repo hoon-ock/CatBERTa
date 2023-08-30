@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from transformers import RobertaModel, RobertaTokenizerFast, RobertaConfig
 from tqdm import tqdm
-from model.dataset import FinetuneDataset, PretrainDataset
+from model.dataset import FinetuneDataset #, PretrainDataset
 from model.common import backbone_wrapper, checkpoint_loader
 from torch.utils.data import DataLoader
 import os, yaml, pickle
@@ -51,11 +51,27 @@ def predict_fn(df, model, tokenizer, device, mode='energy'):
 
     return predictions
 
+def section_text_integrator(data, col_list):
+    df = data.copy()
+    df['text'] = df[col_list].apply(lambda x: ' '.join(x), axis=1)
+    return df
 
 if __name__ == '__main__':
     # ========================== INPUT ============================
-    ckpt_dir = "checkpoint/finetune/base-ft_0623_2101" #pretrain/pt_0625_2026"
+    ckpt_dir = "checkpoint/finetune/base-sys-ft_0712_1213" #pretrain/pt_0625_2026"
     ckpt_name = ckpt_dir.split('/')[-1]
+    #val_data_path = "/home/jovyan/CATBERT/data/df_val.pkl" #paths["val_data"]
+    tknz_path = 'roberta-base' #paths["tknz"]
+    # ================== 2. Load Data ==================                               
+    #df_val = pd.read_pickle(val_data_path)
+    df_val = pd.read_pickle("data/df_val_multi.pkl")
+    df_val['text'] = df_val['system']
+    #df_val['text'] = df_val['string2'] #.apply(lambda x: f"{x.split('</s>')[0]}</s>{x.split('</s>')[1]}")
+    #df_val['text'] = df_val['text'].apply(lambda x: x.replace('*', ''))
+    #df_val.rename(columns={'string2': 'text'}, inplace=True)
+    #df_val = section_text_integrator(df_val, ['system'])
+    # df_val = df_val.sample(5000, random_state=17) # for debugging
+    breakpoint()
     # =============================================================
     import argparse 
     parser = argparse.ArgumentParser(description='Set the running mode')
@@ -75,7 +91,7 @@ if __name__ == '__main__':
     # ================== 0. Load Checkpoint and Configs ==================
     if args.base:
         tag = 'base'
-        val_data_path = "data/df_val.pkl"
+        # val_data_path = "/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k_label.pkl"
         if pred == 'energy':
             raise ValueError('Cannot predict energy with base model!')
     
@@ -92,15 +108,14 @@ if __name__ == '__main__':
             train_config = os.path.join(ckpt_dir, "ft_config.yaml")
 
         paths = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['paths']
-        val_data_path = paths["val_data"]
-        tknz_path = paths["tknz"]
+        
         head = yaml.load(open(train_config, "r"), Loader=yaml.FullLoader)['params']['model_head']
         # Load Model Config
-        if 'base' in ckpt_name:
-            roberta_config = RobertaConfig.from_pretrained('roberta-base')
-        else:
-            model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
-            roberta_config = RobertaConfig.from_dict(model_config)
+        # if 'base' in ckpt_name:
+        #     roberta_config = RobertaConfig.from_pretrained('roberta-base')
+        # else:
+        #     model_config = yaml.load(open(os.path.join(ckpt_dir, "roberta_config.yaml"), "r"), Loader=yaml.FullLoader)
+        #     roberta_config = RobertaConfig.from_dict(model_config)
         # Load Checkpoint
         checkpoint = os.path.join(ckpt_dir, "checkpoint.pt")
     # Set Device 
@@ -111,28 +126,29 @@ if __name__ == '__main__':
     if args.base:
         backbone = RobertaModel.from_pretrained('roberta-base')
         max_len = backbone.embeddings.position_embeddings.num_embeddings-2
-        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', max_len=max_len)
+        tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base')
+        tokenizer.model_max_length = max_len
         model = backbone
     else:
-        backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+        #backbone = RobertaModel.from_pretrained('roberta-base', config=roberta_config, ignore_mismatched_sizes=True)
+        backbone = RobertaModel.from_pretrained('roberta-base')
         max_len = backbone.embeddings.position_embeddings.num_embeddings-2
         # model.load_state_dict(torch.load(checkpoint))
-        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path, max_len=max_len)
+        tokenizer = RobertaTokenizerFast.from_pretrained(tknz_path)
+        tokenizer.model_max_length = max_len
         if pred == 'energy':
             # To generate energy, we need to load the model with the head.
             # So, we need to load the model from the checkpoint on the whole model.
             model = backbone_wrapper(backbone, head)
+            #breakpoint()
             checkpoint_loader(model, checkpoint, load_on_roberta=False)
         elif pred == 'embed' or pred == 'attn':
             # To generate embeddings/attention, we need to load the model without the head.
             # So, we need to load the model from the checkpoint only on the backbone.
             checkpoint_loader(backbone, checkpoint, load_on_roberta=True)
             model = backbone                        
-    # ================== 2. Load Data ==================                               
-    df_val = pd.read_pickle(val_data_path)
-    # df_val = df_val.sample(5000, random_state=17) # for debugging
-    
-    # ================== 3. Obtain Predictions ==================
+
+    # ================== 2. Obtain Predictions ==================
     predictions = predict_fn(df_val, model, tokenizer, device, mode=pred)
     
     # save predictions as dictionary with id as key
@@ -144,6 +160,6 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    save_path = os.path.join(save_dir, f"catbert_{tag}_{pred}.pkl")
+    save_path = os.path.join(save_dir, f"catbert_{tag}.pkl")
     with open(save_path, "wb") as f:
         pickle.dump(results, f)   

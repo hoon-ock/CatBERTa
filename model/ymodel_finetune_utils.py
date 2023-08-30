@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from model.dataset import FinetuneDataset
 import wandb
 from tqdm import tqdm
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 
 
 def mae_loss_fn(predictions, targets):
@@ -13,9 +13,6 @@ def mae_loss_fn(predictions, targets):
 
 def rmse_loss_fn(predictions, targets):       
     return torch.sqrt(nn.MSELoss()(predictions, targets))
-
-def smooth_l1_loss_fn(predictions, targets):
-    return nn.SmoothL1Loss()(predictions, targets)
 
 
 def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
@@ -34,7 +31,7 @@ def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
         
         weight_decay = 0.0 if any(p in name for p in no_decay) else 0.01
  
-        if name.startswith("model.embeddings") or name.startswith("model.encoder"):            
+        if name.startswith("sub_backbone.embeddings") or name.startswith("sub_backbone.encoder"):            
             # For first set, set lr to 1e-6 (i.e. 0.000001)
             lr = init_lr       
             
@@ -49,7 +46,7 @@ def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
                                    "lr": lr})  
         #breakpoint()    
         # For regressor and pooler, set lr to 0.0000036 (slightly higher than the top layer).                
-        if name.startswith("regressor") or name.startswith("model.pooler"):               
+        if name.startswith("regressor") or name.startswith("sub_backbone.pooler"):               
             lr = init_lr * 3.6 
             
             opt_parameters.append({"params": params,
@@ -63,7 +60,7 @@ def roberta_base_AdamW_grouped_LLRD(model, init_lr, debug=False):
 
     return torch.optim.AdamW(opt_parameters, lr=init_lr, weight_decay=0.01), debug_param_groups
 
-def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
+def train_fn(data_loader, model, optimizer, device, scheduler, alpha):
     model.train()                               # Put the model in training mode.                   
     lr_list = []
     train_losses = []
@@ -75,17 +72,14 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
         targets = batch["target"].to(device, dtype=torch.float) 
         #breakpoint()
         optimizer.zero_grad()                   # To zero out the gradients.
-        outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
+        
+        outputs, sim_loss = model(ids, masks)
+        outputs = outputs.squeeze(-1) 
+        
         # Get the training loss.
-        if loss_fn == 'mae':
-            loss = mae_loss_fn(outputs, targets)
-        elif loss_fn =='rmse':
-            loss  = rmse_loss_fn(outputs, targets)
-        elif loss_fn == 'L2':
-            loss = nn.MSELoss()(outputs, targets)
-        elif loss_fn == "smooth_l1":
-            loss = smooth_l1_loss_fn(outputs, targets)
-
+        reg_loss = mae_loss_fn(outputs, targets)
+        loss = alpha * sim_loss + (1-alpha) * reg_loss
+        # breakpoint()
         train_losses.append(loss.item())
         #loss.backward(retain_graph=True)        
         loss.backward()                         # To backpropagate the error (gradients are computed).
@@ -94,9 +88,10 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
         scheduler.step()                        # To update learning rate.    
     return np.mean(train_losses), np.mean(lr_list)
 
-def validate_fn(data_loader, model, device, loss_fn='rmse'):  
+def validate_fn(data_loader, model, device, alpha):  
     model.eval()                                    # Put model in evaluation mode.
     val_losses = []
+    val_sim_losses = []
     val_maes = []
     print('validating...')
     with torch.no_grad():                           # Disable gradient calculation.
@@ -105,26 +100,22 @@ def validate_fn(data_loader, model, device, loss_fn='rmse'):
             ids = batch["ids"].to(device, dtype=torch.long)
             masks = batch["masks"].to(device, dtype=torch.long)
             targets = batch["target"].to(device, dtype=torch.float)
-            outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
+            ## need to fix this part!
+            outputs, sim_loss = model(ids, masks)
+            outputs = outputs.squeeze(-1)
              # Get the validation loss.
-            if loss_fn == 'mae':
-                loss = mae_loss_fn(outputs, targets)
-                mae = loss       
-            elif loss_fn =='rmse':
-                loss  = rmse_loss_fn(outputs, targets)
-                mae = mae_loss_fn(outputs, targets)
-            elif loss_fn == 'L2':
-                loss = nn.MSELoss()(outputs, targets)
-                mae = mae_loss_fn(outputs, targets)
-            elif loss_fn == 'smooth_l1':
-                loss = smooth_l1_loss_fn(outputs, targets)
-                mae = mae_loss_fn(outputs, targets)                               
+
+            reg_loss = mae_loss_fn(outputs, targets)
+            mae = reg_loss       
+            loss = alpha * sim_loss + (1-alpha) * reg_loss
+
+            val_sim_losses.append(sim_loss.item())            
             val_losses.append(loss.item())
             val_maes.append(mae.item())           
-    return np.mean(val_losses), np.mean(val_maes) 
+    return np.mean(val_losses), np.mean(val_sim_losses), np.mean(val_maes) 
 
 
-def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name):  
+def run_finetuning(df_train, df_val, params, alpha, model, tokenizer, device, run_name):  
 
     # Hyperparameters and settings   
     EPOCHS = params["num_epochs"]
@@ -135,8 +126,8 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     WRMUP = params["warmup_steps"] if params.get("warmup_steps") else 0 # warmup step for scheduler
     SCHD = params["scheduler"] if params.get("scheduler") else "linear" # scheduler type
     #HEAD = params["model_head"] if params.get("model_head") else "pooler" # Attach model head for regression
-    LOSSFN = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
-    
+    # LOSSFN = params["loss_fn"] if params.get("loss_fn") else "rmse" # Attach model head for regression
+    # alpha = 0.0
     # ========================================================================
     # Prepare logging and saving path
     # ========================================================================
@@ -144,7 +135,7 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     print("=============================================================")
     print(f"{run_name} is launched")
     print("=============================================================")
-    print(f"Model head: {params['model_head']}")
+    # print(f"Model head: {params['model_head']}")
     print(f"Epochs: {EPOCHS}")
     print(f"Early stopping threshold: {EARLY_STOP_THRESHOLD}")
     print(f"Training batch size: {TRAIN_BS}")
@@ -152,7 +143,8 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     print(f"Initial learning rate: {LR}")
     print(f"Warmup steps: {WRMUP}")
     print(f"Scheduler: {SCHD}")
-    print(f"Loss function: {LOSSFN}")
+    # print(f"Loss function: {LOSSFN}")
+    print(f"Alpha: {alpha}")
     print("=============================================================")
     wandb.init(project="catbert-ft", name=run_name, dir='./log')
                #dir='/home/jovyan/shared-scratch/jhoon/CATBERT/log')
@@ -185,7 +177,7 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     if params.get("optimizer") == "AdamW":
         optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.01) #originally 1e-6
     elif params.get("optimizer") == "gLLRD":
-        optimizer, _ = roberta_base_AdamW_grouped_LLRD(model, LR)
+        optimizer, _ = roberta_base_AdamW_grouped_LLRD(model.sub_model, LR)
     # Calculate the number of training steps (this is used by scheduler).
     # training steps = [number of batches] x [number of epochs].
     train_steps = int(len(df_train) / TRAIN_BS * EPOCHS)    
@@ -194,9 +186,8 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
                     SCHD,    # Create a schedule with a learning rate that decreases linearly 
                                  # from the initial learning rate set in the optimizer to 0.
                     optimizer = optimizer,
-                    num_warmup_steps = WRMUP, #50
+                    num_warmup_steps = WRMUP,
                     num_training_steps = train_steps)
-    # scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
     #=========================================================================
     # Training Loop - Start training the epochs
     #=========================================================================   
@@ -204,13 +195,13 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
     early_stopping_counter = 0       
     for epoch in range(1, EPOCHS+1):
         # Call the train function and get the training loss
-        train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler, LOSSFN)
-        
+        train_loss, lr = train_fn(train_data_loader, model, optimizer, device, scheduler, alpha)
         # Perform validation and get the validation loss
-        val_loss, val_mae = validate_fn(val_data_loader, model, device, LOSSFN)
-        # scheduler.step(val_loss)
+        val_loss, val_sim_loss, val_mae = validate_fn(val_data_loader, model, device, alpha)
+
         loss = val_loss
-        wandb.log({"train_loss": train_loss, "val_loss": val_loss, "val_mae": val_mae,'lr': lr})
+        wandb.log({"train_loss": train_loss, "val_loss": val_loss, 
+                   "val_sim_loss": val_sim_loss, "val_mae": val_mae,'lr': lr})
         # If there's improvement on the validation loss, save the model checkpoint.
         # Else do early stopping if threshold is reached.
         if loss < best_loss:            
@@ -218,11 +209,15 @@ def run_finetuning(df_train, df_val, params, model, tokenizer, device, run_name)
             if not os.path.exists(save_ckpt_path):
                 os.makedirs(save_ckpt_path)
             torch.save(model.state_dict(), os.path.join(save_ckpt_path, 'checkpoint.pt'))
-            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}, checkpoint saved.")
+            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, \
+Val Sim Loss = {round(val_sim_loss,3)}, Val Loss = {round(val_loss,3)}, \
+Val MAE = {round(val_mae,3)}, checkpoint saved.")
             best_loss = loss
             early_stopping_counter = 0
         else:
-            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, Val Loss = {round(val_loss,3)}, Val MAE = {round(val_mae,3)}")
+            print(f"Epoch: {epoch}, Train Loss = {round(train_loss,3)}, \
+Val Sim Loss = {round(val_sim_loss,3)}, Val Loss = {round(val_loss,3)}, \
+Val MAE = {round(val_mae,3)}")
             early_stopping_counter += 1
         if early_stopping_counter > EARLY_STOP_THRESHOLD:
             print(f"Early stopping triggered at epoch {epoch}! Best Loss: {round(best_loss,3)}\n")                

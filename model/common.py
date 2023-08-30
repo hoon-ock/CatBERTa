@@ -1,6 +1,7 @@
 import torch, os, shutil
 from transformers import (RobertaConfig, RobertaModel)
 from model.regressors import *
+from model.interaction_regressors  import *
 from model.classifiers import MultiLabelClassifier
 
 def backbone_wrapper(backbone, head_type):
@@ -26,8 +27,22 @@ def backbone_wrapper(backbone, head_type):
         model = MultimodalRegressor(backbone)
     elif head_type == "multimodal2":
         model = MultimodalRegressor2(backbone)
+    elif head_type == "multimodal3":
+        model = MultimodalRegressor3(backbone)
+    elif head_type == "multimodal4":
+        model = MultimodalRegressor4(backbone)
     elif head_type == "multitransformer":
         model = MultiTransformer(backbone)
+    elif head_type == "interaction":
+        model = InteractionRegressor(backbone)
+    elif head_type == "regressor1":
+        model = MyRegressor1(backbone)
+    elif head_type == "regressor2":
+        model = MyRegressor2(backbone)
+    elif head_type == "regressor3":
+        model = MyRegressor3(backbone)
+    elif head_type == "y_model":
+        model = YModel(backbone)
     else:
         raise ValueError(f"Unknown model_head: {head_type}") 
     
@@ -45,10 +60,11 @@ def checkpoint_loader(model, checkpoint_path, load_on_roberta=False):
     if load_on_roberta:
         # this is option is to load the checkpoint on the roberta_model
         # in this case, the checkpoint should be from pretraining
-        if 'mlm' in checkpoint_path:
+        if 'mlm' in checkpoint_path or 'nsp' in checkpoint_path:
             matching_state_dict = {k.replace('roberta.', ''): v for k, v in state_dict.items() if k.replace('roberta.', '') in model_dict}
         else:
-            matching_state_dict = {k.replace('roberta_model.', ''): v for k, v in state_dict.items() if k.replace('roberta_model.', '') in model_dict}
+            # matching_state_dict = {k.replace('roberta_model.', ''): v for k, v in state_dict.items() if k.replace('roberta_model.', '') in model_dict}
+            matching_state_dict = {k.replace('model.', ''): v for k, v in state_dict.items() if k.replace('model.', '') in model_dict}
     else:
         # this is option is to continue training on the whole model with head
         matching_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}

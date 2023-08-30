@@ -7,17 +7,26 @@ import os
 
 class EnergyAnalysis():
 
-    def __init__(self, df_train, df_val, metadata, save_path):
+    def __init__(self, df_train, df_val, size, save_path):
         self.df_train = df_train               # train data
         self.df_val = df_val                   # validation data
-        self.metadata = metadata               # oc20 metadata
+        self.size = size
+        self.metadata = pickle.load(open("metadata/oc20_meta/oc20_data_metadata.pkl", "rb"))               # oc20 metadata
         self.save_path = save_path             # save path
         self.title_map = {'cgcnn': 'CGCNN',
                           'dimenet': 'DimeNet',
                           'schnet': 'SchNet',
                           'dimenetpp': 'DimeNet++',
+                          'gemnet_t': 'GemNet-T',
                           'painn': 'PaiNN',
-                          'catbert': 'CatBERT',} # model name mapping for saving
+                          'catbert': 'CatBERTa',
+                          'string1': 'CatBERTa', 
+                          'string2': 'CatBERTa', 
+                          'string3': 'CatBERTa',
+                          'string5': 'CatBERTa',
+                          'des1': 'CatBERTa', 
+                          'des2': 'CatBERTa',
+                          'des-sys': 'CatBERTa'} # model name mapping for saving
         self.split_names = ['ID', 'OOD$_{ads}$', 'OOD$_{cat}$', 'OOD$_{both}$']
         self.name_map = {'ID': 'ID',
                         'OOD$_{ads}$': 'OOD-ads',
@@ -85,16 +94,23 @@ class EnergyAnalysis():
         print("Number of OOD_both: " + str(len(OOD_both)))
         return ID, OOD_ads, OOD_cat, OOD_both
     
-    def get_ml_and_dft_results(self, model):
+    def get_ml_and_dft_results(self, model, number=None):
         # combine DFT and ML results
         # DFT results are from the given dataframe
         # ML results are from the below pickle files
         df = self.df_val.set_index('id')
-        dft = self.df_val['target']
+        dft = df['target']
         #file_path = f"data/ml-pred/{model}_energy_*.pkl"
-        file_path = glob.glob(f"results/energy/{model}_energy_*.pkl")
-        result = pd.read_pickle(file_path[0])
+        if number:
+            #file_path = glob.glob(f"results/ml-pred/train_{self.size}/val_{model}_{self.size}_{str(number)}.pkl")    
+            file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}_{str(number)}.pkl"
+        else:
+            #file_path = glob.glob(f"results/ml-pred/train_{self.size}/val_{model}_{self.size}.pkl")
+            file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}.pkl"
+        # breakpoint()
+        result = pd.read_pickle(file_path)
         ml = pd.Series(result)
+        # breakpoint()
         dft = df['target']
         df_combined = pd.concat([dft, ml], axis=1)
         df_combined.columns = ['dft', 'ml']
@@ -113,27 +129,31 @@ class EnergyAnalysis():
     #     plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
     #     return r2, mae, rmse
     
-    def create_save_directory(self, model):
+    def create_save_directory(self, model, number):
         # create a directory to save plots/results
-        save_path = os.path.join(self.save_path, f'{model}')
+        save_path = os.path.join(self.save_path, f'{self.size}/{model}')
+        if number:
+            save_path += "_" + str(number)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         return save_path
 
-    def plot_val_splits(self, model):
+    def plot_val_splits(self, model, number=None):
         # plot parity plots and conduct analysis for each validation split
-        save_path = self.create_save_directory(model)
+        save_path = self.create_save_directory(model, number)
         
         # analysis on the entire validation data
         results = {}
-        df = self.get_ml_and_dft_results(model)
+        df = self.get_ml_and_dft_results(model, number)
+        if model == 'string3' or model == 'des1' or model == 'des2' or model == 'des-sys':
+            df_temp = df.sample(n=10000)
         if 'catbert' in model:
             model = 'catbert'
-        r2, mae, rmse = parity_plot(df['dft'], df['ml'],
+        r2, mae, rmse = parity_plot(df_temp['dft'], df_temp['ml'],
                                     xlabel='DFT $\Delta E$ [eV]',
                                     ylabel=f'{self.title_map[model]} $\Delta E$ [eV]',
                                     plot_type='hexabin', xylim=[-12, 12])
-        plt.title('Entire data', fontsize=20)
+        # plt.title('Entire data', fontsize=20)
         full_save_path = os.path.join(save_path, f'entire.png')
         plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
         plt.close()
@@ -148,7 +168,7 @@ class EnergyAnalysis():
                                         xlabel='DFT $\Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta E$ [eV]',
                                         plot_type='hexabin', xylim=[-12, 12])
-            plt.title(name, fontsize=20)
+            # plt.title(name, fontsize=20)
             full_save_path = os.path.join(save_path, f'{self.name_map[name]}.png')
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
             plt.close()
@@ -161,13 +181,16 @@ class EnergyAnalysis():
         df_results.to_csv(os.path.join(save_path, f'{model}.csv'))
         return df_results
     
-    def plot_energy_difference(self, model, 
-                               sample_num=400, random_seed=17):
+    def plot_energy_difference(self, model, number=None,
+                               sample_num=2000):
         # plot and conduct analysis for energy difference (ddE)
-        save_path = self.create_save_directory(model)
+        save_path = self.create_save_directory(model, number)
 
-        file_path = glob.glob(f"results/energy/{model}_*.pkl")
-        ml_result = pd.read_pickle(file_path[0])
+        if number:  
+            file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}_{str(number)}.pkl"
+        else:
+            file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}.pkl"
+        ml_result = pd.read_pickle(file_path)
         df = self.df_val.set_index('id')
 
         # grouping chemically similar pairs
@@ -176,7 +199,7 @@ class EnergyAnalysis():
         results = {}
         for group, name in zip(groups, names):
             # sampling a subset for quick analysis
-            df_sample = df.loc[group].sample(n=sample_num, random_state=random_seed)
+            df_sample = df.loc[group] #.sample(n=sample_num) #, random_state=random_seed)
             df_sample = df_sample.reset_index()
             # analysis on each validation split
             print("============ " + name + " ============")
@@ -195,8 +218,8 @@ class EnergyAnalysis():
             r2_t, mae_t, rmse_t = parity_plot(df_total['dft'], df_total['ml'],
                                         xlabel='DFT $\Delta \Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta \Delta E$ [eV]',
-                                        plot_type='hexabin', xylim=[-12, 12])
-            plt.title(f"Entire {name}", fontsize=20)
+                                        plot_type='hexabin', xylim=[-20, 20])
+            # plt.title(f"Entire {name}", fontsize=20)
             full_save_path = os.path.join(save_path, f'ddE_{self.name_map[name]}_entire.png')
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
             del df_total, all_pairs
@@ -208,8 +231,8 @@ class EnergyAnalysis():
             r2, mae, rmse = parity_plot(df_result['dft'], df_result['ml'],
                                         xlabel='DFT $\Delta \Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta \Delta E$ [eV]',
-                                        plot_type='hexabin', xylim=[-12, 12])
-            plt.title(name, fontsize=20)
+                                        plot_type='hexabin', xylim=[-12, 12], color='orange')
+            # plt.title(name, fontsize=20)
             full_save_path = os.path.join(save_path, f'ddE_{self.name_map[name]}_similar.png')
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
             plt.close()
@@ -231,21 +254,22 @@ class EnergyAnalysis():
 
 if __name__ == "__main__":
     # load inputs
-    metadata = pickle.load(open("metadata/oc20_meta/oc20_data_metadata.pkl", "rb"))
-    df_train = pd.read_pickle("data/df_train.pkl")
-    df_val = pd.read_pickle("data/df_val.pkl")
+    df_train = pd.read_pickle("/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/train_2nd/train_100k.pkl")
+    df_val = pd.read_pickle("data/df_val_multi.pkl") #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k.pkl")
     save_path = "figure/energy"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
     # iterate through models
-    models = ['catbert_base-ft_0623_2101']
+    size = '100k'
+    models = ['des-sys'] #['string3', 'des1','des2']
+    number = None
     print("============ Analysis Initiation ============")
-    Results = EnergyAnalysis(df_train, df_val, metadata, save_path)
+    Results = EnergyAnalysis(df_train, df_val, size, save_path)
     for model in models:
         print("================= " + model + " =================")
         print("----------------- Splits -----------------")
-        Results.plot_val_splits(model)
+        Results.plot_val_splits(model, number)
         # print("------------ Energy Difference ------------")
-        # Results.plot_energy_difference(model)
+        # Results.plot_energy_difference(model, number)
 

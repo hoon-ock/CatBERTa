@@ -1,17 +1,16 @@
 params:
-  num_epochs: 50
+  num_epochs: 60
   batch_size: 16
   lr: 1.0e-6
-  early_stop_threshold: 4
+  early_stop_threshold: 20
   scheduler: linear # constant, linear
-  warmup_steps: 0
-  optimizer: AdamW    # AdamW, gLLRD
-  model_head: pooler     # pooler, mlp, mlp2, attnhead, concatlayer
-  loss_fn: rmse       # mae, rmse, L2
+  warmup_steps: 0 #6500
+  optimizer: gLLRD  # AdamW, gLLRD
+  model_head: pooler    # pooler, mlp, mlp2, attnhead, concatlayer
+  loss_fn: mae     # mae, rmse, L2, smooth_l1
 
 paths:
-  train_data: "data/df_train.pkl"
-  val_data: "data/df_val.pkl"
-  ft_config: "config/ft_config.yaml"
-  pt_ckpt: "checkpoint/pretrain/pt_0625_2026" #pt_0625_2026 mlm-pt_0623_0522 "roberta-base'
-  tknz: "tokenizer"
+  train_data: "data/df_train.pkl" #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/train_2nd/train_all.pkl"
+  val_data: "data/df_val.pkl" #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k.pkl"
+  pt_ckpt: "roberta-base" #"checkpoint/pretrain/300k-2nd-int-mlm-pt_0810_2252" #"checkpoint/finetune/surf-comp-1st-int-dist-2nd-int-RP-schd-ft_0805_0233"
+  tknz: "roberta-base" #tokenizer or tokenizer_mol

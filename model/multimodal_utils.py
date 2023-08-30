@@ -29,10 +29,10 @@ def train_fn(data_loader, model, optimizer, device, scheduler, loss_fn='rmse'):
         for section in sections:
             ids.append(batch["ids"][section])
             masks.append(batch["masks"][section])
-        
-        ids = torch.stack(ids, dim=0).to(device, dtype=torch.long)
-        masks = torch.stack(masks, dim=0).to(device, dtype=torch.long)
-        targets = batch["target"].to(device, dtype=torch.float)
+        #breakpoint()
+        ids = torch.stack(ids, dim=0).to(device, dtype=torch.long) # [3, batch_size, seq_len]
+        masks = torch.stack(masks, dim=0).to(device, dtype=torch.long) # [3, batch_size, seq_len]
+        targets = batch["target"].to(device, dtype=torch.float) # [batch_size]
 
         optimizer.zero_grad()                   # To zero out the gradients.
         outputs = model(ids, masks).squeeze(-1) # Predictions from 1 batch of data.
