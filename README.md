@@ -10,6 +10,9 @@ CatBERTa is a Transformer-based energy prediction model designed for efficient c
 - Achieves a mean absolute error (MAE) of 0.75 eV, comparable to earlier Graph Neural Networks (GNNs).
 - Enhances energy difference predictions by effectively canceling out systematic errors for chemically similar systems. (for more details, refer to the paper: [Beyond Independent Error Assumptions in Large GNNs](https://pubs.aip.org/aip/jcp/article-abstract/158/21/214702/2893731/Beyond-independent-error-assumptions-in-large-GNN?redirectedFrom=fulltext)).
 
+![framework_github](https://github.com/hoon-ock/CatBERTa/assets/93333323/a7da32f8-275b-4bc6-b52f-65600e6d34bf)
+
+
 ## Getting Started
 
 Follow these steps to start using CatBERTa for predicting catalyst adsorption energy:
@@ -31,7 +34,7 @@ Before you begin, ensure you have the following prerequisites installed:
    git clone https://github.com/hoon-ock/CatBERTa.git
    cd CatBERTa
    
-![framework_github](https://github.com/hoon-ock/CatBERTa/assets/93333323/cafeb4de-b859-4b2e-abb1-f5e56ac0e22f)
+
 
 ### Dataset
 
@@ -39,7 +42,7 @@ Before you begin, ensure you have the following prerequisites installed:
 
    The `data` folder houses the preprocessed textual data derived from the Open Catalyst 2020 dataset. Due to storage limitations, we offer a small subset of our training and validation data as an illustrative example. This subset showcases the format and structure of the data that CatBERTa utilizes for energy prediction.
 
-   If you are interested in accessing the full training and validation dataset for more comprehensive experimentation, please don't hesitate to reach out to us.
+   For access to the full dataset, please visit the following link: [Google Drive - Full Dataset](https://drive.google.com/drive/folders/1puiJ9FbLEA3QIHmZromecEndlemag9hg?usp=sharing).
 
 2. Structural data
   
