@@ -8,7 +8,7 @@ CatBERTa is a Transformer-based energy prediction model designed for efficient c
 - Processes human-interpretable text to embed target features for energy prediction.
 - Analyzes attention scores to reveal how CatBERTa focuses on the incorporated features.
 - Achieves a mean absolute error (MAE) of 0.75 eV, comparable to earlier Graph Neural Networks (GNNs).
-- Enhances energy difference predictions by effectively canceling out systematic errors for chemically similar systems.
+- Enhances energy difference predictions by effectively canceling out systematic errors for chemically similar systems. (for more details, refer to the paper: [Beyond Independent Error Assumptions in Large GNNs](https://pubs.aip.org/aip/jcp/article-abstract/158/21/214702/2893731/Beyond-independent-error-assumptions-in-large-GNN?redirectedFrom=fulltext)).
 
 ## Getting Started
 
