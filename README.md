@@ -1,14 +1,12 @@
-# CatBERTa: Text-Based Catalyst Energy Prediction
+# CatBERTa: Text-Based Catalyst Property Prediction
 
-CatBERTa is a state-of-the-art energy prediction model designed for efficient catalyst screening. It addresses the challenge of predicting adsorption energy, a critical property in catalyst reactivity, without relying on precise atomic coordinates or complex graph representations. Instead, CatBERTa leverages the power of Transformer-based language models to process human-interpretable textual inputs and predict adsorption energies accurately.
+CatBERTa is a Transformer-based energy prediction model designed for efficient catalyst property prediction. It addresses the challenge of predicting adsorption energy, a critical property in catalyst reactivity, without relying on precise atomic coordinates or complex graph representations. Instead, CatBERTa leverages the power of Transformer-based language models to process human-interpretable textual inputs and predict energies accurately.
 
 ## Key Features
 
-- Predicts adsorption energy, a key property in catalyst reactivity, using textual inputs.
-- Built on a pretrained Transformer encoder, offering the benefits of transfer learning.
+- Predicts energy using textual inputs, by harnessing the power of a pre-trained RoBERTa encoder.
 - Processes human-interpretable text to embed target features for energy prediction.
-- Analyzes attention scores to reveal how CatBERTa focuses on adsorbates, bulk composition, and interacting atoms.
-- Explores the effectiveness of interacting atoms as descriptors for adsorption configurations.
+- Analyzes attention scores to reveal how CatBERTa focuses on the incorporated features.
 - Achieves a mean absolute error (MAE) of 0.75 eV, comparable to vanilla Graph Neural Networks (GNNs).
 - Enhances energy difference predictions by effectively canceling out systematic errors for chemically similar systems.
 
