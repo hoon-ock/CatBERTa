@@ -39,13 +39,13 @@ Before you begin, ensure you have the following prerequisites installed:
 
    The `data` folder houses the preprocessed textual data derived from the Open Catalyst 2020 dataset. Due to storage limitations, we offer a small subset of our training and validation data as an illustrative example. This subset showcases the format and structure of the data that CatBERTa utilizes for energy prediction.
 
-If you are interested in accessing the full training and validation dataset for more comprehensive experimentation, please don't hesitate to reach out to us.
+   If you are interested in accessing the full training and validation dataset for more comprehensive experimentation, please don't hesitate to reach out to us.
 
 2. Structural data
   
    The **Open Catalyst Project** dataset serves as a crucial source of textual generation for CatBERTa. This comprehensive dataset comprises a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems, each accompanied by their corresponding energies.
 
-To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository: [Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
+   To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository: [Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
 
 
 
