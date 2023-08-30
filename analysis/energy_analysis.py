@@ -100,34 +100,19 @@ class EnergyAnalysis():
         # ML results are from the below pickle files
         df = self.df_val.set_index('id')
         dft = df['target']
-        #file_path = f"data/ml-pred/{model}_energy_*.pkl"
         if number:
-            #file_path = glob.glob(f"results/ml-pred/train_{self.size}/val_{model}_{self.size}_{str(number)}.pkl")    
             file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}_{str(number)}.pkl"
         else:
-            #file_path = glob.glob(f"results/ml-pred/train_{self.size}/val_{model}_{self.size}.pkl")
             file_path = f"results/ml-pred/train_{self.size}/val_{model}_{self.size}.pkl"
-        # breakpoint()
+
         result = pd.read_pickle(file_path)
         ml = pd.Series(result)
-        # breakpoint()
+
         dft = df['target']
         df_combined = pd.concat([dft, ml], axis=1)
         df_combined.columns = ['dft', 'ml']
         return df_combined
     
-    # def plot_entire_val(self, model, size, plotoff=False):
-
-    #     df = self.get_ml_and_dft_results(model, size)
-
-    #     r2, mae, rmse = parity_plot(df['dft'], df['ml'],
-    #                                 xlabel='DFT $\Delta E$ [eV]',
-    #                                 ylabel=f'{self.title_map[model]} $\Delta E$ [eV]',
-    #                                 plot_type='hexabin', xylim=[-12, 12])
-    #     plt.title('Entire data', fontsize=20)
-    #     full_save_path = os.path.join(self.save_path, f'{model}_{size}_entire.png')
-    #     plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
-    #     return r2, mae, rmse
     
     def create_save_directory(self, model, number):
         # create a directory to save plots/results
@@ -219,7 +204,7 @@ class EnergyAnalysis():
                                         xlabel='DFT $\Delta \Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta \Delta E$ [eV]',
                                         plot_type='hexabin', xylim=[-20, 20])
-            # plt.title(f"Entire {name}", fontsize=20)
+
             full_save_path = os.path.join(save_path, f'ddE_{self.name_map[name]}_entire.png')
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
             del df_total, all_pairs
@@ -232,7 +217,7 @@ class EnergyAnalysis():
                                         xlabel='DFT $\Delta \Delta E$ [eV]',
                                         ylabel=f'{self.title_map[model]} $\Delta \Delta E$ [eV]',
                                         plot_type='hexabin', xylim=[-12, 12], color='orange')
-            # plt.title(name, fontsize=20)
+
             full_save_path = os.path.join(save_path, f'ddE_{self.name_map[name]}_similar.png')
             plt.savefig(full_save_path, bbox_inches='tight', facecolor='w')
             plt.close()
@@ -254,8 +239,8 @@ class EnergyAnalysis():
 
 if __name__ == "__main__":
     # load inputs
-    df_train = pd.read_pickle("/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/train_2nd/train_100k.pkl")
-    df_val = pd.read_pickle("data/df_val_multi.pkl") #"/home/jovyan/shared-scratch/jhoon/CATBERT/is2re/val_2nd/val_10k.pkl")
+    df_train = pd.read_pickle("data/df_train.pkl")
+    df_val = pd.read_pickle("data/df_val.pkl")
     save_path = "figure/energy"
     if not os.path.exists(save_path):
         os.makedirs(save_path)
