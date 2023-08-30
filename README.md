@@ -71,11 +71,11 @@ During the training process, CatBERTa automatically creates and manages checkpoi
 To analyze energy and embedding predictions using CatBERTa, you can utilize the `catberta_prediction.py` script. This script allows you to generate predictions for either energy or embedding values.
 
 ```bash
-$ python catberta_prediction.py --target energy
+$ python catberta_prediction.py --target energy --base --ckpt_dir "Path/to/checkpoint" --data_path "Path/to/data"
 ```
 or
 ```bash
-$ python catberta_prediction.py --target emb
+$ python catberta_prediction.py --target embed --base --ckpt_dir "Path/to/checkpoint" --data_path "Path/to/data"
 ```
 
 
