@@ -35,7 +35,7 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
 
 1. Structural data
   
-   The **Open Catalyst Project** dataset provides the foundation for training and evaluating CatBERTa. This dataset is a valuable resource containing essential information for catalyst screening and reactivity prediction. The dataset includes a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems with their associated energies. 
+   The **Open Catalyst Project** dataset serves as a crucial source of textual generation for CatBERTa. This comprehensive dataset comprises a diverse collection of structural relaxation trajectories of adsorbate-catalyst systems, each accompanied by their corresponding energies.
 
 To access the Open Catalyst Project dataset and learn more about its attributes, please refer to the official repository: [Open Catalyst Project Dataset](https://github.com/Open-Catalyst-Project/ocp/blob/main/DATASET.md)
 
@@ -53,23 +53,32 @@ For access to the model checkpoints, please reach out to us.
 
 ### Finetuning for energy prediction
 
-The training configurations for CatBERTa can be found in the `config/ft_config.yaml` file. This configuration file contains important settings and hyperparameters that influence the training process.
+The training configurations for CatBERTa can be found in the `config/ft_config.yaml` file.
 
-During the training process, CatBERTa automatically creates and manages checkpoints to keep track of model progress. The checkpoints are saved in the `checkpoint/finetune` folder. This folder is created automatically if it doesn't exist and serves as the storage location for your model's intermediate states throughout the training procedure.
+During the training process, CatBERTa automatically creates and manages checkpoints to keep track of model progress. The checkpoints are saved in the `checkpoint/finetune` folder. This folder is created automatically if it doesn't exist and serves as the storage location for checkpoints.
 
    ```bash
    $ python finetune_regression.py
    ```
 ## Analysis
 
-### Energy and embedding prediction
+### Energy and Embedding Prediction
 
+To analyze energy and embedding predictions using CatBERTa, you can utilize the `catberta_prediction.py` script. This script allows you to generate predictions for either energy or embedding values.
 
-   ```bash
-   $ python catberta_prediction.py
-   ```
+```bash
+$ python catberta_prediction.py --target energy
+```
+or
+```bash
+$ python catberta_prediction.py --target emb
+```
+
 
 ### Attention score analysis
+
+The [AttentionVisualizer](https://github.com/AlaFalaki/AttentionVisualizer/tree/main) repository provides a robust toolkit to visualize and analyze attention scores. To use this tool effectively with CatBERTa, you can load the finetuned Roberta encoder into the AttentionVisualizer package. 
+
 
 ## Contact
 questions or support, feel free to contact us at [jock@andrew.cmu.edu].
