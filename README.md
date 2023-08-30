@@ -18,10 +18,9 @@ Follow these steps to start using CatBERTa for predicting catalyst adsorption en
 
 Before you begin, ensure you have the following prerequisites installed:
 
-- Python 3.8.5
-- PyTorch 1.11.0
-- transformers 4.29.2
-- wandb 0.15.4
+- Python 3.8
+- PyTorch 1.11
+- transformers 4.29
 
 ### Installation
 
