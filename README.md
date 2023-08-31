@@ -74,7 +74,7 @@ During the training process, CatBERTa automatically creates and manages checkpoi
    ```bash
    $ python finetune_regression.py
    ```
-## Analysis
+## Model Prediction
 
 ### Energy and Embedding Prediction
 
@@ -89,10 +89,10 @@ $ python catberta_prediction.py --target embed --base --ckpt_dir "Path/to/checkp
 ```
 
 
-### Attention score analysis
+### Attention Score Analysis
 
 The [AttentionVisualizer](https://github.com/AlaFalaki/AttentionVisualizer/tree/main) repository provides a robust toolkit to visualize and analyze attention scores. To use this tool effectively with CatBERTa, you can load the finetuned Roberta encoder into the AttentionVisualizer package. 
 
 
 ## Contact
-questions or support, feel free to contact us at [jock@andrew.cmu.edu].
+questions or support, feel free to contact us through jock@andrew.cmu.edu.
