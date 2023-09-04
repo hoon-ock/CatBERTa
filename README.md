@@ -93,6 +93,17 @@ $ python catberta_prediction.py --target embed --base --ckpt_dir "Path/to/checkp
 
 The [AttentionVisualizer](https://github.com/AlaFalaki/AttentionVisualizer/tree/main) repository provides a robust toolkit to visualize and analyze attention scores. To use this tool effectively with CatBERTa, you can load the finetuned Roberta encoder into the AttentionVisualizer package. 
 
+## Citation
+```
+@misc{ock2023catalyst,
+      title={Catalyst Property Prediction with CatBERTa: Unveiling Feature Exploration Strategies through Large Language Models}, 
+      author={Janghoon Ock and Chakradhar Guntuboina and Amir Barati Farimani},
+      year={2023},
+      eprint={2309.00563},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE}
+}
+```
 
 ## Contact
 questions or support, feel free to contact us through jock@andrew.cmu.edu.
