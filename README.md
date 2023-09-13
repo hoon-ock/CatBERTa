@@ -1,5 +1,5 @@
 # CatBERTa: Text-Based Catalyst Property Prediction
-[arxiv](https://arxiv.org/abs/2309.00563)
+[arXiv](https://arxiv.org/abs/2309.00563)
 <div>
 <!--   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/95808140-a60c-4428-99d6-8491b5b1ae83" alt="CatBERTa Image" width="250" align="right"> -->
   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/fc436ccd-3cce-4dbb-9011-cec0ed4c207e" alt="CatBERTa Image" width="250" align="right">
@@ -95,13 +95,11 @@ The [AttentionVisualizer](https://github.com/AlaFalaki/AttentionVisualizer/tree/
 
 ## Citation
 ```
-@misc{ock2023catalyst,
-      title={Catalyst Property Prediction with CatBERTa: Unveiling Feature Exploration Strategies through Large Language Models}, 
-      author={Janghoon Ock and Chakradhar Guntuboina and Amir Barati Farimani},
-      year={2023},
-      eprint={2309.00563},
-      archivePrefix={arXiv},
-      primaryClass={cs.CE}
+@article{ock2023catalyst,
+  title={Catalyst Property Prediction with CatBERTa: Unveiling Feature Exploration Strategies through Large Language Models},
+  author={Ock, Janghoon and Guntuboina, Chakradhar and Farimani, Amir Barati},
+  journal={arXiv preprint arXiv:2309.00563},
+  year={2023}
 }
 ```
 
