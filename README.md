@@ -1,5 +1,5 @@
 # CatBERTa: Text-Based Catalyst Property Prediction
-[Paper](https://arxiv.org/abs/2309.00563)
+[arxiv](https://arxiv.org/abs/2309.00563)
 <div>
 <!--   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/95808140-a60c-4428-99d6-8491b5b1ae83" alt="CatBERTa Image" width="250" align="right"> -->
   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/fc436ccd-3cce-4dbb-9011-cec0ed4c207e" alt="CatBERTa Image" width="250" align="right">
