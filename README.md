@@ -1,5 +1,5 @@
 # CatBERTa: Text-Based Catalyst Property Prediction
-[arXiv](https://arxiv.org/abs/2309.00563)
+[Paper](https://pubs.acs.org/doi/full/10.1021/acscatal.3c04956)
 <div>
 <!--   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/95808140-a60c-4428-99d6-8491b5b1ae83" alt="CatBERTa Image" width="250" align="right"> -->
   <img src="https://github.com/hoon-ock/CatBERTa/assets/93333323/fc436ccd-3cce-4dbb-9011-cec0ed4c207e" alt="CatBERTa Image" width="250" align="right">
@@ -95,11 +95,23 @@ The [AttentionVisualizer](https://github.com/AlaFalaki/AttentionVisualizer/tree/
 
 ## Citation
 ```
-@article{ock2023catalyst,
-  title={Catalyst Property Prediction with CatBERTa: Unveiling Feature Exploration Strategies through Large Language Models},
-  author={Ock, Janghoon and Guntuboina, Chakradhar and Farimani, Amir Barati},
-  journal={arXiv preprint arXiv:2309.00563},
-  year={2023}
+@article{ock2023catberta,
+author = {Ock, Janghoon and Guntuboina, Chakradhar and Barati Farimani, Amir},
+title = {Catalyst Energy Prediction with CatBERTa: Unveiling Feature Exploration Strategies through Large Language Models},
+journal = {ACS Catalysis},
+volume = {13},
+number = {24},
+pages = {16032-16044},
+year = {2023},
+doi = {10.1021/acscatal.3c04956},
+URL = { 
+        https://doi.org/10.1021/acscatal.3c04956
+},
+eprint = { 
+    
+        https://doi.org/10.1021/acscatal.3c04956
+
+}
 }
 ```
 
